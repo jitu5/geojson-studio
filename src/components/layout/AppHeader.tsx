@@ -15,7 +15,8 @@ export function AppHeader() {
   return (
     <header className="border-stroke-divider bg-surface-primary flex h-14 shrink-0 items-center gap-3 border-b px-4">
       {/* The logo sits on its own navy square, so one file serves both themes. */}
-      <img src="/logo.svg" alt="" width={24} height={24} className="size-6" />
+      {/* BASE_URL keeps the path right when the app is served from a sub-path such as GitHub Pages. */}
+      <img src={`${import.meta.env.BASE_URL}logo.svg`} alt="" width={24} height={24} className="size-6" />
       <span className="headings-h4-semibold text-fg-primary">GeoJSON Studio</span>
       <span className="label-small-primary text-fg-secondary hidden sm:inline" aria-live="polite">
         {summary}

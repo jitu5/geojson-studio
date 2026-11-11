@@ -1,0 +1,61 @@
+name: Deploy to GitHub Pages
+
+# Builds the app for https://<owner>.github.io/<repo>/ and publishes it, with the
+# build-story page at /docs/how-it-was-built.html. Runs only once the repository
+# variable PAGES_ENABLED is "true", so nothing fails while Pages is switched off.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    if: ${{ vars.PAGES_ENABLED == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Build for the repository sub-path
+        run: npm run build -- --base=/${{ github.event.repository.name }}/
+
+      - name: Add the build-story page
+        run: |
+          mkdir -p dist/docs
+          cp docs/how-it-was-built.html dist/docs/
+          cp -r docs/screenshots dist/docs/
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

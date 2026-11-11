@@ -10,9 +10,13 @@ GeoJSON Studio is a browser tool for looking at GeoJSON. Drop in a file, paste s
 
 It all runs in the browser, so there is no server, no account and no API key.
 
+**Try it:** https://jitu5.github.io/geojson-studio/ · **How it was built:** https://jitu5.github.io/geojson-studio/docs/how-it-was-built.html
+
 ![World capitals loaded, with one feature selected and its properties open](docs/screenshots/02-capitals-inspector.png)
 
 The app is also a worked example. It was built from an empty folder with the open-source QBDS design system and its `qb-frontend-react` workflow. [How it was built](#how-it-was-built-with-qbds) walks through every step, and the plan the workflow produced is in this repo.
+
+For the full story as an illustrated web page, read [How GeoJSON Studio was built](https://jitu5.github.io/geojson-studio/docs/how-it-was-built.html), or open [`docs/how-it-was-built.html`](docs/how-it-was-built.html) locally. It covers every decision the agent made in place of asking, how closely it followed the skill, and what went wrong along the way.
 
 ## What you can do with it
 
@@ -56,6 +60,8 @@ Then open http://localhost:5173. To try it, click **Open samples** and load **Wo
 | `npm run test:e2e` | Playwright tests against the production build, in your installed Chrome (no browser download). They also refresh the screenshots in `docs/screenshots/`. |
 
 The build is a plain static site, so `dist/` can be hosted anywhere that serves files.
+
+**GitHub Pages.** Every push to `main` deploys to https://jitu5.github.io/geojson-studio/ through [`.github/workflows/pages.yml`](.github/workflows/pages.yml). The workflow runs the unit tests, builds for the `/geojson-studio/` sub-path and adds the build-story page under `docs/`. It only runs while the repository variable `PAGES_ENABLED` is `true`.
 
 **HERE basemaps (optional).** The default basemaps are CARTO Dark Matter and Positron, and OpenFreeMap Liberty; none of them needs a key. To add HERE Explore, Satellite and Terrain to the basemap menu, put your own HERE key in `.env.local`, which git ignores:
 
@@ -205,6 +211,7 @@ src/
   components/layout/         header, panel resizer, side panel
 tests/e2e/                   Playwright tests
 docs/plan/                   the workflow's JSON plan
+docs/how-it-was-built.html   the build story as a web page
 docs/screenshots/            screenshots taken by the e2e tests
 ```
 

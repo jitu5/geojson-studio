@@ -1,0 +1,934 @@
+<!doctype html>
+<html lang="en" class="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>How GeoJSON Studio was built</title>
+<meta name="description" content="From one brief to a tested app: how GeoJSON Studio was built with the QBDS design system and the qb-frontend-react workflow, step by step." />
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+CiAgPHRpdGxlPkdlb0pTT04gU3R1ZGlvPC90aXRsZT4KICA8cmVjdCB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIGZpbGw9IiMwRTE1MjUiLz4KICA8cGF0aCBkPSJNNTMgMjMuM0w0MC43IDExSDIzLjNMMTEgMjMuM1Y0MC43TDIzLjMgNTNINDAuN0w1MyA0MC43VjMySDM5IiBmaWxsPSJub25lIiBzdHJva2U9IiMwOTdERkUiIHN0cm9rZS13aWR0aD0iNiIgc3Ryb2tlLWxpbmVqb2luPSJtaXRlciIvPgogIDxyZWN0IHg9IjQ5IiB5PSIxOS4zIiB3aWR0aD0iOCIgaGVpZ2h0PSI4IiBmaWxsPSIjRTc3RUMyIi8+CiAgPGNpcmNsZSBjeD0iMzYuNSIgY3k9IjMyIiByPSI1LjUiIGZpbGw9IiMwNUQwRjAiLz4KPC9zdmc+Cg==" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=Roboto+Mono:wght@400&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Sharp:opsz,wght,FILL,GRAD@20..24,300..400,0..1,0&display=block" rel="stylesheet" />
+<style>
+  /* ---------- QBDS tokens (values from src/styles/globals.css) ---------- */
+  :root {
+    --font-sans: 'Inter', system-ui, sans-serif;
+    --font-mono: 'Roboto Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+    /* light theme */
+    --surface-base: oklch(98.54% 0.0013 286.38);
+    --surface-primary: oklch(100% 0 0);
+    --surface-secondary: oklch(96.37% 0.0017 247.84);
+    --surface-code: oklch(96.37% 0.0017 247.84);
+    --text-primary: oklch(20.64% 0.0205 271.56 / 0.88);
+    --text-secondary: oklch(20.64% 0.0205 271.56 / 0.6);
+    --text-tertiary: oklch(20.64% 0.0205 271.56 / 0.5);
+    --border-divider: oklch(20.64% 0.0205 271.56 / 0.1);
+    --border-tertiary: oklch(20.64% 0.0205 271.56 / 0.16);
+    --border-secondary: oklch(20.64% 0.0205 271.56 / 0.24);
+    --border-primary: oklch(20.64% 0.0205 271.56 / 0.38);
+    --fill-subtle: oklch(20.64% 0.0205 271.56 / 0.04);
+    --fill-muted: oklch(20.64% 0.0205 271.56 / 0.07);
+    --fill-active: oklch(18.46% 0.0187 274.71);
+    --text-on-active: oklch(100% 0 0);
+    --hover: oklch(20.64% 0.0205 271.56 / 0.08);
+    --status-success: #16a34a;
+    --status-error: #dc2626;
+    --syn-key: #0063f6;
+    --syn-str: #0f766e;
+    --syn-num: #c84189;
+
+    /* chart palette (DESIGN.md), used here the way the app uses it: to encode categories */
+    --c-blue: #097dfe;
+    --c-violet: #6f39e3;
+    --c-cyan: #05d0f0;
+    --c-teal: #0f766e;
+    --c-peri: #8c8de9;
+    --c-green: #11b883;
+    --c-pink: #e77ec2;
+    --c-magenta: #c84189;
+    --c-lime: #c0ca33;
+  }
+  html.dark {
+    --surface-base: oklch(20.64% 0.0205 271.56);
+    --surface-primary: oklch(22.43% 0.022 272.68);
+    --surface-secondary: oklch(23.76% 0.0235 273.59);
+    --surface-code: oklch(18.46% 0.0187 274.71);
+    --text-primary: oklch(100% 0 0 / 0.88);
+    --text-secondary: oklch(100% 0 0 / 0.6);
+    --text-tertiary: oklch(100% 0 0 / 0.5);
+    --border-divider: oklch(100% 0 0 / 0.08);
+    --border-tertiary: oklch(100% 0 0 / 0.16);
+    --border-secondary: oklch(100% 0 0 / 0.38);
+    --border-primary: oklch(100% 0 0 / 0.6);
+    --fill-subtle: oklch(100% 0 0 / 0.04);
+    --fill-muted: oklch(100% 0 0 / 0.07);
+    --fill-active: oklch(100% 0 0);
+    --text-on-active: oklch(20.64% 0.0205 271.56);
+    --hover: oklch(100% 0 0 / 0.08);
+    --status-success: #4ade80;
+    --status-error: #f87171;
+    --syn-key: #8cc6ff;
+    --syn-str: #11b883;
+    --syn-num: #e77ec2;
+  }
+
+  /* ---------- base ---------- */
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { background: var(--surface-base); color: var(--text-primary); font-family: var(--font-sans); -webkit-font-smoothing: antialiased; scroll-behavior: smooth; scroll-padding-top: 88px; }
+  body { font-size: 14px; line-height: 20px; letter-spacing: -0.028px; }
+  a { color: inherit; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--border-secondary); }
+  a:hover { text-decoration-color: currentColor; }
+  :focus-visible { outline: 2px solid var(--c-blue); outline-offset: 2px; }
+  code, .mono { font-family: var(--font-mono); font-size: 0.92em; }
+  p code, li code, td code { background: var(--fill-muted); padding: 1px 5px; }
+  strong { font-weight: 600; color: var(--text-primary); }
+  .ms { font-family: 'Material Symbols Sharp'; font-weight: 300; font-style: normal; font-size: 20px; line-height: 1; letter-spacing: normal; text-transform: none; display: inline-block; white-space: nowrap; direction: ltr; -webkit-font-smoothing: antialiased; font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 20; user-select: none; }
+
+  /* QBDS type scale */
+  .display-d1 { font-size: 56px; line-height: 60px; font-weight: 300; letter-spacing: -0.28px; }
+  .display-d3 { font-size: 40px; line-height: 48px; font-weight: 300; letter-spacing: -0.8px; }
+  .h1 { font-size: 30px; line-height: 40px; font-weight: 400; letter-spacing: -0.128px; }
+  .h2 { font-size: 24px; line-height: 32px; font-weight: 400; letter-spacing: -0.096px; }
+  .h3 { font-size: 20px; line-height: 28px; font-weight: 400; }
+  .h3-semi { font-size: 20px; line-height: 28px; font-weight: 600; }
+  .h4-semi { font-size: 16px; line-height: 24px; font-weight: 600; letter-spacing: -0.016px; }
+  .p-large { font-size: 16px; line-height: 24px; letter-spacing: -0.032px; }
+  .label-small { font-size: 12px; line-height: 16px; }
+  .eyebrow { font-size: 12px; line-height: 16px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-tertiary); display: flex; align-items: center; gap: 10px; }
+  .muted { color: var(--text-secondary); }
+  .faint { color: var(--text-tertiary); }
+
+  /* ---------- top bar ---------- */
+  .topbar { position: sticky; top: 0; z-index: 20; height: 56px; display: flex; align-items: center; gap: 12px; padding: 0 24px; background: var(--surface-primary); border-bottom: 1px solid var(--border-divider); }
+  .topbar .name { font-size: 16px; line-height: 24px; font-weight: 600; }
+  .topbar .crumb { color: var(--text-secondary); font-size: 14px; }
+  .topbar .spacer { flex: 1; }
+  .icon-btn { width: 32px; height: 32px; display: grid; place-items: center; background: transparent; border: 0; color: var(--text-primary); cursor: pointer; }
+  .icon-btn:hover { background: var(--hover); }
+  .text-link { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; height: 32px; padding: 0 10px; text-decoration: none; color: var(--text-primary); }
+  .text-link:hover { background: var(--hover); }
+  .text-link[hidden] { display: none; }
+
+  /* ---------- hero ---------- */
+  .hero { position: relative; overflow: hidden; border-bottom: 1px solid var(--border-divider); }
+  .hero-inner { position: relative; max-width: 1240px; margin: 0 auto; padding: 88px 32px 72px; }
+  .hero-copy { position: relative; z-index: 1; max-width: 660px; }
+  .hero h1 { margin: 20px 0 20px; }
+  .hero .lead { color: var(--text-secondary); max-width: 600px; }
+  .hero-art { position: absolute; right: -40px; top: 32px; width: 620px; height: 460px; z-index: 0; pointer-events: none; }
+  .brief { margin-top: 36px; background: var(--surface-primary); border: 1px solid var(--border-divider); padding: 20px 24px; display: grid; grid-template-columns: 24px 1fr; gap: 14px; max-width: 640px; }
+  .brief .ms { color: var(--c-blue); font-size: 24px; margin-top: -2px; }
+  .brief p { color: var(--text-primary); }
+  .brief .faint { margin-top: 8px; }
+  .stats { position: relative; z-index: 1; margin-top: 48px; display: grid; grid-template-columns: repeat(4, 1fr); border-top: 1px solid var(--border-divider); border-left: 1px solid var(--border-divider); background: var(--surface-base); }
+  .stat { padding: 18px 20px 20px; border-right: 1px solid var(--border-divider); border-bottom: 1px solid var(--border-divider); }
+  .stat .display-d3 { display: block; }
+  .stat .label-small { color: var(--text-secondary); display: block; margin-top: 4px; }
+
+  /* ---------- layout ---------- */
+  .layout { max-width: 1240px; margin: 0 auto; padding: 0 32px; display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 56px; }
+  .toc { position: sticky; top: 80px; align-self: start; padding: 40px 0; }
+  .toc .eyebrow { margin-bottom: 12px; }
+  .toc ol { list-style: none; display: flex; flex-direction: column; gap: 2px; }
+  .toc a { display: grid; grid-template-columns: 10px 1fr; gap: 10px; align-items: center; padding: 6px 10px; text-decoration: none; color: var(--text-secondary); font-size: 13px; line-height: 18px; }
+  .toc a:hover { background: var(--hover); color: var(--text-primary); }
+  .toc a[aria-current='true'] { background: var(--fill-muted); color: var(--text-primary); }
+  .dot { width: 10px; height: 10px; display: inline-block; flex: none; }
+  main { min-width: 0; }
+
+  section { padding: 72px 0; border-bottom: 1px solid var(--border-divider); }
+  section:last-of-type { border-bottom: 0; }
+  .sec-head { margin-bottom: 28px; max-width: 760px; }
+  .sec-head .h1 { margin: 12px 0 12px; }
+  .sec-head p { color: var(--text-secondary); }
+  .sub { margin: 40px 0 16px; display: flex; align-items: baseline; gap: 12px; }
+  .sub .h3-semi { font-size: 18px; line-height: 26px; }
+  .prose { max-width: 760px; color: var(--text-secondary); }
+  .prose p + p { margin-top: 12px; }
+  .prose strong { color: var(--text-primary); }
+
+  /* ---------- generic blocks ---------- */
+  .card { background: var(--surface-primary); border: 1px solid var(--border-divider); padding: 20px; }
+  .grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; font-family: var(--font-mono); font-size: 12px; line-height: 16px; padding: 4px 8px; border: 1px solid var(--border-tertiary); background: var(--fill-subtle); color: var(--text-primary); white-space: nowrap; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .tag { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; line-height: 16px; padding: 2px 8px; border: 1px solid var(--border-tertiary); color: var(--text-secondary); }
+  .tag.on { background: var(--fill-active); border-color: var(--fill-active); color: var(--text-on-active); }
+  .note { display: grid; grid-template-columns: 22px 1fr; gap: 12px; padding: 16px 18px; border: 1px solid var(--border-tertiary); background: var(--fill-subtle); color: var(--text-secondary); max-width: 760px; }
+  .note .ms { color: var(--text-primary); }
+  .note strong { display: block; margin-bottom: 2px; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 14px; line-height: 20px; }
+  th { text-align: left; font-weight: 400; font-size: 12px; line-height: 16px; color: var(--text-tertiary); padding: 10px 12px; border-bottom: 1px solid var(--border-tertiary); }
+  td { padding: 12px; border-bottom: 1px solid var(--border-divider); vertical-align: top; color: var(--text-secondary); }
+  td:first-child { color: var(--text-primary); }
+  .table-wrap { background: var(--surface-primary); border: 1px solid var(--border-divider); overflow-x: auto; }
+
+  pre { background: var(--surface-code); border: 1px solid var(--border-divider); padding: 16px 18px; overflow-x: auto; font-family: var(--font-mono); font-size: 12.5px; line-height: 20px; color: var(--text-secondary); }
+  pre .k { color: var(--syn-key); } pre .s { color: var(--syn-str); } pre .n { color: var(--syn-num); }
+  pre .c { color: var(--text-tertiary); } pre .e { color: var(--status-error); } pre .ok { color: var(--status-success); }
+  pre .pr { color: var(--text-tertiary); user-select: none; }
+  pre.wrap { white-space: pre-wrap; overflow-wrap: anywhere; }
+  .code-title { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border: 1px solid var(--border-divider); border-bottom: 0; background: var(--surface-primary); font-family: var(--font-mono); font-size: 12px; color: var(--text-secondary); }
+
+  /* ---------- process rail ---------- */
+  .rail { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); border: 1px solid var(--border-divider); background: var(--surface-primary); }
+  .step { position: relative; padding: 18px 16px 18px; border-right: 1px solid var(--border-divider); display: flex; flex-direction: column; gap: 8px; min-height: 196px; }
+  .step:last-child { border-right: 0; }
+  .step .num { font-family: var(--font-mono); font-size: 12px; color: var(--text-tertiary); display: flex; align-items: center; gap: 8px; }
+  .step .t { font-weight: 600; font-size: 14px; line-height: 20px; }
+  .step .d { font-size: 12px; line-height: 16px; color: var(--text-secondary); }
+  .step .art { margin-top: auto; font-family: var(--font-mono); font-size: 11px; line-height: 15px; color: var(--text-tertiary); overflow-wrap: anywhere; }
+  .step.added { background: repeating-linear-gradient(135deg, var(--fill-subtle) 0 6px, transparent 6px 12px); }
+  .gate { position: absolute; right: -7px; top: 22px; width: 12px; height: 12px; background: var(--surface-primary); border: 1px solid var(--border-secondary); transform: rotate(45deg); z-index: 2; }
+  .rail-legend { display: flex; gap: 20px; flex-wrap: wrap; margin-top: 12px; font-size: 12px; color: var(--text-tertiary); }
+  .rail-legend span { display: inline-flex; align-items: center; gap: 8px; }
+  .rail-legend i { width: 10px; height: 10px; border: 1px solid var(--border-secondary); transform: rotate(45deg); display: inline-block; }
+  .rail-legend b { width: 14px; height: 10px; display: inline-block; background: repeating-linear-gradient(135deg, var(--border-secondary) 0 2px, transparent 2px 4px); font-weight: 400; }
+
+  /* ---------- toolkit ---------- */
+  .kit { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; background: var(--border-divider); border: 1px solid var(--border-divider); }
+  .kit .item { background: var(--surface-primary); padding: 18px 18px 20px; display: flex; flex-direction: column; gap: 8px; }
+  .kit .item .top { display: flex; align-items: center; gap: 10px; }
+  .kit .item .ico { width: 32px; height: 32px; display: grid; place-items: center; background: var(--fill-muted); }
+  .kit .item .t { font-weight: 600; }
+  .kit .item p { color: var(--text-secondary); font-size: 13px; line-height: 19px; }
+  .libs { margin-top: 16px; }
+  .libs td:first-child { white-space: nowrap; }
+
+  /* ---------- decisions ---------- */
+  .decisions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+  .dq { background: var(--surface-primary); border: 1px solid var(--border-divider); padding: 18px 20px 20px; display: flex; flex-direction: column; gap: 12px; }
+  .dq .q { display: grid; grid-template-columns: 20px 1fr; gap: 10px; }
+  .dq .q .ms { font-size: 18px; color: var(--text-tertiary); margin-top: 2px; }
+  .dq .q span:last-child { font-weight: 600; font-size: 14px; line-height: 20px; }
+  .dq .opts { display: flex; flex-wrap: wrap; gap: 6px; padding-left: 30px; }
+  .dq .why { padding-left: 30px; color: var(--text-secondary); font-size: 13px; line-height: 19px; }
+
+  /* ---------- stories ---------- */
+  .stories { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+  .story { background: var(--surface-primary); border: 1px solid var(--border-divider); padding: 20px; display: flex; flex-direction: column; gap: 10px; }
+  .story .top { display: flex; align-items: center; justify-content: space-between; }
+  .story .ico { width: 36px; height: 36px; display: grid; place-items: center; background: var(--fill-muted); }
+  .story .id { font-family: var(--font-mono); font-size: 11px; color: var(--text-tertiary); }
+  .story .t { font-weight: 600; font-size: 15px; line-height: 22px; }
+  .story p { color: var(--text-secondary); font-size: 13px; line-height: 19px; }
+  .story dl { margin-top: 4px; display: grid; gap: 8px; border-top: 1px solid var(--border-divider); padding-top: 12px; }
+  .story dt { font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-tertiary); }
+  .story dd { font-size: 12.5px; line-height: 18px; color: var(--text-secondary); }
+
+  /* ---------- wireframe ---------- */
+  .wire-wrap { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 20px; align-items: start; }
+  .wire { position: relative; aspect-ratio: 16 / 10; border: 1px solid var(--border-secondary); background: var(--surface-base); display: grid; grid-template-rows: 9% 1fr; overflow: hidden; }
+  .wire .w-head { position: relative; border-bottom: 1px solid var(--border-tertiary); background: var(--surface-primary); }
+  .wire .w-body { display: grid; grid-template-columns: 62% 1fr; min-height: 0; }
+  .wire .w-map { position: relative; background-color: var(--surface-base); background-image: linear-gradient(var(--border-divider) 1px, transparent 1px), linear-gradient(90deg, var(--border-divider) 1px, transparent 1px); background-size: 32px 32px; border-right: 1px solid var(--border-tertiary); }
+  .wire .w-panel { position: relative; background: var(--surface-primary); }
+  .reg { position: absolute; border: 1px dashed var(--border-secondary); background: color-mix(in oklab, var(--surface-primary) 82%, transparent); display: flex; align-items: flex-start; gap: 6px; padding: 5px; font-size: 10.5px; line-height: 13px; color: var(--text-secondary); overflow: hidden; }
+  .reg .n { flex: none; width: 17px; height: 17px; display: grid; place-items: center; background: var(--fill-active); color: var(--text-on-active); font-weight: 600; font-size: 10px; }
+  .reg.new { border-style: solid; border-color: var(--c-pink); }
+  .reg.new .n { background: var(--c-pink); color: #141721; }
+  .wire svg.data { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .legend { display: flex; flex-direction: column; border: 1px solid var(--border-divider); background: var(--surface-primary); }
+  .legend .row { display: grid; grid-template-columns: 22px 1fr; gap: 10px; padding: 9px 12px; border-bottom: 1px solid var(--border-divider); font-size: 12.5px; line-height: 17px; }
+  .legend .row:last-child { border-bottom: 0; }
+  .legend .n { width: 18px; height: 18px; display: grid; place-items: center; background: var(--fill-active); color: var(--text-on-active); font-weight: 600; font-size: 10px; }
+  .legend .row.new .n { background: var(--c-pink); color: #141721; }
+  .legend .ex { display: block; font-family: var(--font-mono); font-size: 11px; color: var(--text-tertiary); margin-top: 2px; word-break: break-word; }
+
+  /* ---------- new components ---------- */
+  .newc { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 1px; background: var(--border-divider); border: 1px solid var(--border-divider); }
+  .newc .item { background: var(--surface-primary); padding: 16px; display: flex; flex-direction: column; gap: 8px; }
+  .newc .item .t { font-family: var(--font-mono); font-size: 12.5px; color: var(--text-primary); }
+  .newc .item p { font-size: 12.5px; line-height: 18px; color: var(--text-secondary); }
+
+  /* ---------- timeline ---------- */
+  .timeline { list-style: none; position: relative; max-width: 820px; }
+  .timeline li { position: relative; display: grid; grid-template-columns: 40px 1fr; gap: 16px; padding-bottom: 22px; }
+  .timeline li::before { content: ''; position: absolute; left: 19px; top: 30px; bottom: 0; width: 1px; background: var(--border-tertiary); }
+  .timeline li:last-child::before { display: none; }
+  .timeline .mk { width: 40px; height: 30px; display: grid; place-items: center; border: 1px solid var(--border-tertiary); background: var(--surface-primary); font-family: var(--font-mono); font-size: 12px; color: var(--text-secondary); }
+  .timeline .t { font-weight: 600; margin-top: 5px; }
+  .timeline p { color: var(--text-secondary); margin-top: 4px; font-size: 13.5px; line-height: 20px; }
+  .timeline .chips { margin-top: 8px; }
+
+  /* ---------- architecture ---------- */
+  .arch { display: flex; flex-direction: column; gap: 8px; }
+  .layer { display: grid; grid-template-columns: 190px 1fr; border: 1px solid var(--border-divider); background: var(--surface-primary); }
+  .layer .lh { padding: 14px 16px; border-right: 1px solid var(--border-divider); display: flex; flex-direction: column; gap: 4px; }
+  .layer .lh .t { font-weight: 600; display: flex; align-items: center; gap: 8px; }
+  .layer .lh .faint { font-size: 12px; line-height: 16px; }
+  .layer .boxes { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px; align-content: flex-start; }
+  .box { border: 1px solid var(--border-tertiary); background: var(--fill-subtle); padding: 8px 10px; min-width: 128px; }
+  .box .bt { font-family: var(--font-mono); font-size: 12px; color: var(--text-primary); }
+  .box .bd { font-size: 11.5px; line-height: 16px; color: var(--text-tertiary); margin-top: 2px; }
+
+  /* ---------- bugs ---------- */
+  .bugs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+  .bug { background: var(--surface-primary); border: 1px solid var(--border-divider); display: flex; flex-direction: column; }
+  .bug header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 18px; border-bottom: 1px solid var(--border-divider); }
+  .bug header .t { font-weight: 600; }
+  .bug dl { display: grid; grid-template-columns: 76px 1fr; gap: 8px 12px; padding: 14px 18px 16px; font-size: 13px; line-height: 19px; }
+  .bug dt { color: var(--text-tertiary); font-size: 12px; }
+  .bug dd { color: var(--text-secondary); }
+
+  /* ---------- gallery ---------- */
+  .gallery { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+  .gallery figure { border: 1px solid var(--border-divider); background: var(--surface-primary); }
+  .gallery img { display: block; width: 100%; height: auto; border-bottom: 1px solid var(--border-divider); }
+  .gallery figcaption { padding: 10px 14px; font-size: 12.5px; line-height: 18px; color: var(--text-secondary); }
+  .gallery figcaption b { color: var(--text-primary); font-weight: 600; }
+
+  /* ---------- scorecard ---------- */
+  .score { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+  .score .col { background: var(--surface-primary); border: 1px solid var(--border-divider); }
+  .score .col header { display: flex; align-items: center; gap: 10px; padding: 14px 18px; border-bottom: 1px solid var(--border-divider); }
+  .score .col header .t { font-weight: 600; }
+  .score .col header .count { margin-left: auto; font-family: var(--font-mono); font-size: 12px; color: var(--text-tertiary); }
+  .score ul { list-style: none; padding: 6px 0; }
+  .score li { padding: 10px 18px; font-size: 13px; line-height: 19px; color: var(--text-secondary); display: grid; grid-template-columns: 18px 1fr; gap: 8px; }
+  .score li .ms { font-size: 16px; margin-top: 1px; }
+  .meter { margin-top: 20px; display: flex; height: 10px; border: 1px solid var(--border-divider); }
+  .meter span { display: block; height: 100%; }
+  .meter-legend { display: flex; gap: 20px; margin-top: 10px; font-size: 12px; color: var(--text-tertiary); flex-wrap: wrap; }
+  .meter-legend span { display: inline-flex; align-items: center; gap: 8px; }
+
+  /* ---------- findings ---------- */
+  .findings { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+  .fgroup { background: var(--surface-primary); border: 1px solid var(--border-divider); }
+  .fgroup header { padding: 14px 16px; border-bottom: 1px solid var(--border-divider); display: flex; align-items: baseline; justify-content: space-between; }
+  .fgroup header .t { font-weight: 600; display: inline-flex; align-items: center; gap: 8px; }
+  .fgroup header .display { font-size: 28px; line-height: 32px; font-weight: 300; }
+  .fgroup ul { list-style: none; }
+  .fgroup li { padding: 10px 16px; border-bottom: 1px solid var(--border-divider); font-size: 12.5px; line-height: 18px; color: var(--text-secondary); }
+  .fgroup li:last-child { border-bottom: 0; }
+  .fgroup li code { background: none; padding: 0; color: var(--text-tertiary); margin-right: 6px; }
+  .sev { width: 8px; height: 8px; display: inline-block; }
+
+  /* ---------- logos ---------- */
+  .logos { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+  .logo-card { background: var(--surface-primary); border: 1px solid var(--border-divider); padding: 20px; display: flex; flex-direction: column; gap: 12px; }
+  .logo-card.chosen { border-color: var(--border-secondary); }
+  .logo-card .row { display: flex; align-items: center; gap: 16px; }
+  .logo-card svg { width: 72px; height: 72px; flex: none; }
+  .logo-card .t { font-weight: 600; display: flex; align-items: center; gap: 8px; }
+  .logo-card p { font-size: 13px; line-height: 19px; color: var(--text-secondary); }
+
+  /* ---------- footer ---------- */
+  footer { border-top: 1px solid var(--border-divider); background: var(--surface-primary); }
+  footer .inner { max-width: 1240px; margin: 0 auto; padding: 28px 32px; display: flex; align-items: center; gap: 12px; color: var(--text-secondary); font-size: 13px; }
+  footer .spacer { flex: 1; }
+
+  /* ---------- responsive ---------- */
+  @media (max-width: 1180px) {
+    .rail { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .step { border-bottom: 1px solid var(--border-divider); }
+    .gate { display: none; }
+    .newc { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .findings { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .wire-wrap { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 1280px) { .hero-art { display: none; } }
+  @media (max-width: 960px) {
+    .layout { grid-template-columns: 1fr; gap: 0; }
+    .toc { display: none; }
+    .stats { grid-template-columns: repeat(2, 1fr); }
+    .kit, .grid-3, .stories, .score, .logos { grid-template-columns: 1fr; }
+    .decisions, .bugs, .gallery, .grid-2 { grid-template-columns: 1fr; }
+    .display-d1 { font-size: 40px; line-height: 48px; }
+    .layer { grid-template-columns: 1fr; }
+    .layer .lh { border-right: 0; border-bottom: 1px solid var(--border-divider); }
+  }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+</style>
+</head>
+<body>
+
+<!-- ======================= TOP BAR ======================= -->
+<header class="topbar">
+  <svg width="24" height="24" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" fill="#0E1525"/><path d="M53 23.3L40.7 11H23.3L11 23.3V40.7L23.3 53H40.7L53 40.7V32H39" fill="none" stroke="#097DFE" stroke-width="6"/><rect x="49" y="19.3" width="8" height="8" fill="#E77EC2"/><circle cx="36.5" cy="32" r="5.5" fill="#05D0F0"/></svg>
+  <span class="name">GeoJSON Studio</span>
+  <span class="crumb">How it was built</span>
+  <span class="spacer"></span>
+  <a class="text-link" id="open-app" href="../" hidden><span class="ms" aria-hidden="true">map</span>Open the app</a>
+  <a class="text-link" href="https://github.com/jitu5/geojson-studio#readme"><span class="ms" aria-hidden="true">description</span>README</a>
+  <button class="icon-btn" id="theme" type="button" aria-label="Switch to light theme"><span class="ms" aria-hidden="true">light_mode</span></button>
+</header>
+
+<!-- ======================= HERO ======================= -->
+<div class="hero">
+  <svg class="hero-art" viewBox="0 0 620 460" aria-hidden="true">
+    <defs>
+      <pattern id="tiles" width="64" height="64" patternUnits="userSpaceOnUse"><path d="M64 0H0V64" fill="none" stroke="currentColor" stroke-opacity="0.08"/></pattern>
+    </defs>
+    <g style="color: var(--text-primary)"><rect width="620" height="460" fill="url(#tiles)"/></g>
+    <rect x="256" y="32" width="64" height="64" fill="none" stroke="#05D0F0" stroke-opacity="0.55" stroke-dasharray="3 3"/>
+    <text x="262" y="46" font-family="Roboto Mono, monospace" font-size="9" fill="#05D0F0" fill-opacity="0.8">9/255/170</text>
+    <polygon points="388,212 452,176 520,204 528,276 470,318 396,290" fill="#097DFE" fill-opacity="0.16" stroke="#097DFE" stroke-width="2"/>
+    <g fill="#E77EC2"><rect x="384" y="208" width="8" height="8"/><rect x="448" y="172" width="8" height="8"/><rect x="516" y="200" width="8" height="8"/><rect x="524" y="272" width="8" height="8"/><rect x="466" y="314" width="8" height="8"/><rect x="392" y="286" width="8" height="8"/></g>
+    <path d="M120 360 C 220 200, 360 110, 560 96" fill="none" stroke="#05D0F0" stroke-width="2" stroke-opacity="0.85"/>
+    <path d="M64 76 L 140 140 L 208 112" fill="none" stroke="#11B883" stroke-width="2" stroke-dasharray="6 5"/>
+    <g fill="#11B883"><rect x="60" y="72" width="8" height="8"/><rect x="136" y="136" width="8" height="8"/><rect x="204" y="108" width="8" height="8"/></g>
+    <text x="150" y="164" font-family="Roboto Mono, monospace" font-size="10" fill="#11B883">343.6 km</text>
+    <g stroke="#141721" stroke-width="1.5"><circle cx="120" cy="360" r="6" fill="#097DFE"/><circle cx="560" cy="96" r="6" fill="#097DFE"/><circle cx="214" cy="300" r="5" fill="#097DFE"/><circle cx="268" cy="398" r="5" fill="#097DFE"/><circle cx="470" cy="388" r="5" fill="#097DFE"/></g>
+    <circle cx="456" cy="246" r="9" fill="#E77EC2" stroke="#141721" stroke-width="2"/>
+    <text x="396" y="346" font-family="Roboto Mono, monospace" font-size="10" fill="currentColor" style="color: var(--text-secondary)">-0.127600, 51.507200</text>
+  </svg>
+  <div class="hero-inner">
+    <div class="hero-copy">
+      <div class="eyebrow"><span class="dot" style="background: var(--c-blue)"></span>Build story</div>
+      <h1 class="display-d1">From one brief to a tested app</h1>
+      <p class="h3 lead">How an AI coding agent built GeoJSON Studio from an empty folder, following the QBDS <code>qb-frontend-react</code> workflow stage by stage, without asking a single question.</p>
+      <div class="brief">
+        <span class="ms" aria-hidden="true">format_quote</span>
+        <div>
+          <p>Use the QBDS design system, its skills and its React workflow to build a GeoJSON visualiser like geojson.tools. Understand every part of the workflow, from the ground up to a finished product. Test all of it. Work in a separate work tree, and don't ask any questions.</p>
+          <p class="faint label-small">The brief, in short. "Don't ask" switched the skill into its <em>just build</em> mode.</p>
+        </div>
+      </div>
+    </div>
+    <div class="stats" role="list">
+      <div class="stat" role="listitem"><span class="display-d3">0</span><span class="label-small">questions asked; each one became a written decision instead</span></div>
+      <div class="stat" role="listitem"><span class="display-d3">4 + 1</span><span class="label-small">skill stages, plus a Verify stage the agent added</span></div>
+      <div class="stat" role="listitem"><span class="display-d3">6</span><span class="label-small">user stories split from one goal</span></div>
+      <div class="stat" role="listitem"><span class="display-d3">23</span><span class="label-small">QBDS registry components installed</span></div>
+      <div class="stat" role="listitem"><span class="display-d3">5</span><span class="label-small">new components, each with a written reason</span></div>
+      <div class="stat" role="listitem"><span class="display-d3">4.7k</span><span class="label-small">lines of app code, outside the registry files</span></div>
+      <div class="stat" role="listitem"><span class="display-d3">65</span><span class="label-small">automated tests: 54 unit and 11 in a real browser</span></div>
+      <div class="stat" role="listitem"><span class="display-d3">14</span><span class="label-small">findings about the workflow itself</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="layout">
+  <!-- ======================= TOC ======================= -->
+  <nav class="toc" aria-label="On this page">
+    <div class="eyebrow">On this page</div>
+    <ol>
+      <li><a href="#overview"><span class="dot" style="background: var(--text-tertiary)"></span>The whole journey</a></li>
+      <li><a href="#toolkit"><span class="dot" style="background: var(--text-tertiary)"></span>The toolkit</a></li>
+      <li><a href="#research"><span class="dot" style="background: var(--c-peri)"></span>0 · Research</a></li>
+      <li><a href="#requirements"><span class="dot" style="background: var(--c-blue)"></span>1 · Requirements</a></li>
+      <li><a href="#ux"><span class="dot" style="background: var(--c-violet)"></span>2 · UX design</a></li>
+      <li><a href="#ui"><span class="dot" style="background: var(--c-cyan)"></span>3 · UI structure</a></li>
+      <li><a href="#build"><span class="dot" style="background: var(--c-green)"></span>4 · Build</a></li>
+      <li><a href="#verify"><span class="dot" style="background: var(--c-pink)"></span>5 · Verify</a></li>
+      <li><a href="#result"><span class="dot" style="background: var(--c-lime)"></span>The result</a></li>
+      <li><a href="#fidelity"><span class="dot" style="background: var(--text-tertiary)"></span>How closely it followed the skill</a></li>
+      <li><a href="#findings"><span class="dot" style="background: var(--text-tertiary)"></span>What the build found</a></li>
+      <li><a href="#after"><span class="dot" style="background: var(--text-tertiary)"></span>After the build</a></li>
+    </ol>
+  </nav>
+
+  <main>
+    <!-- ======================= OVERVIEW ======================= -->
+    <section id="overview">
+      <div class="sec-head">
+        <div class="eyebrow">The whole journey</div>
+        <h2 class="h1">Seven steps, one plan file</h2>
+        <p class="p-large">The skill is a four-stage recipe for AI coding agents: Requirements, UX design, UI structure and Build. Each stage fills in one section of a single JSON plan, and normally ends at a <strong>gate</strong> where the user approves before the agent moves on. The agent added a research step at the start and a verify step at the end.</p>
+      </div>
+
+      <div class="rail" role="list">
+        <div class="step" role="listitem"><span class="num"><span class="dot" style="background: var(--c-peri)"></span>00</span><span class="t">Research</span><span class="d">Take the reference app apart and list exactly what it does.</span><span class="art">behaviour list</span><span class="gate" aria-hidden="true"></span></div>
+        <div class="step" role="listitem"><span class="num"><span class="dot" style="background: var(--c-blue)"></span>01</span><span class="t">Requirements</span><span class="d">One goal, who it's for, where the code goes, what's in and out.</span><span class="art">plan.requirements</span><span class="gate" aria-hidden="true"></span></div>
+        <div class="step" role="listitem"><span class="num"><span class="dot" style="background: var(--c-violet)"></span>02</span><span class="t">UX design</span><span class="d">Split the goal into user stories: what each person sees and does.</span><span class="art">plan.uxdesign</span><span class="gate" aria-hidden="true"></span></div>
+        <div class="step" role="listitem"><span class="num"><span class="dot" style="background: var(--c-cyan)"></span>03</span><span class="t">UI structure</span><span class="d">Map every region to a registry component and its official example.</span><span class="art">plan.ui_structure</span><span class="gate" aria-hidden="true"></span></div>
+        <div class="step" role="listitem"><span class="num"><span class="dot" style="background: var(--c-green)"></span>04</span><span class="t">Build</span><span class="d">Scaffold, install, assemble. No redesign at this point.</span><span class="art">plan.build + src/</span><span class="gate" aria-hidden="true"></span></div>
+        <div class="step added" role="listitem"><span class="num"><span class="dot" style="background: var(--c-pink)"></span>05</span><span class="t">Verify</span><span class="d">Type-check, lint, unit tests, browser tests, screenshot review.</span><span class="art">tests/ + screenshots</span></div>
+        <div class="step added" role="listitem"><span class="num"><span class="dot" style="background: var(--c-lime)"></span>06</span><span class="t">Report</span><span class="d">Write down what worked and what broke in the workflow.</span><span class="art">test report</span></div>
+      </div>
+      <div class="rail-legend"><span><i></i>Confirmation gate. In <em>just build</em> mode the agent passes it without asking.</span><span><b></b>Added by the agent; not part of the skill</span></div>
+
+      <div class="sub"><span class="h3-semi">What "just build" changed</span></div>
+      <div class="grid-2">
+        <div class="note"><span class="ms" aria-hidden="true">check</span><div><strong>Still done</strong>Every stage, in order, with every section of the plan filled in. The skill says just build means "skip confirmation gates only. Run all the steps."</div></div>
+        <div class="note"><span class="ms" aria-hidden="true">skip_next</span><div><strong>Skipped</strong>Waiting for approval at the gates. Each question the agent would have asked became a decision with a written reason, mostly in the plan's <code>assumptions</code>. The most important ones are shown in the stage sections below.</div></div>
+      </div>
+    </section>
+
+    <!-- ======================= TOOLKIT ======================= -->
+    <section id="toolkit">
+      <div class="sec-head">
+        <div class="eyebrow">The toolkit</div>
+        <h2 class="h1">What the agent worked with</h2>
+        <p class="p-large">Six parts of the QBDS design system, plus a small set of open-source libraries for the jobs QBDS doesn't cover: a map, a code editor and testing.</p>
+      </div>
+
+      <div class="kit">
+        <div class="item"><div class="top"><span class="ico"><span class="ms" aria-hidden="true">route</span></span><span class="t">qb-frontend-react skill</span></div><p>The workflow itself: four stages, a JSON plan, confirmation gates, and rules such as "example composition wins" and "do not hand-roll the scaffold".</p></div>
+        <div class="item"><div class="top"><span class="ico"><span class="ms" aria-hidden="true">widgets</span></span><span class="t">@qbds registry</span></div><p>A shadcn registry. <code>npx shadcn add @qbds/button</code> copies the component's source code into the project, so the app owns it.</p></div>
+        <div class="item"><div class="top"><span class="ico"><span class="ms" aria-hidden="true">dashboard_customize</span></span><span class="t">Examples</span></div><p>Official compositions for each component, such as <code>ToolbarVertical</code> or <code>DropdownMenuWithRadioGroup</code>. The skill treats them as the source of truth for layout.</p></div>
+        <div class="item"><div class="top"><span class="ico"><span class="ms" aria-hidden="true">palette</span></span><span class="t">DESIGN.md</span></div><p>The visual rules: dark first, sharp corners, Material Symbols Sharp only, weights 300/400/600, no coloured side stripes, and the chart colour palettes.</p></div>
+        <div class="item"><div class="top"><span class="ico"><span class="ms" aria-hidden="true">style</span></span><span class="t">TOKENS.md</span></div><p>Semantic Tailwind v4 classes such as <code>bg-surface-primary</code>, <code>text-fg-secondary</code> and <code>border-stroke-divider</code>. No raw hex in UI chrome.</p></div>
+        <div class="item"><div class="top"><span class="ico"><span class="ms" aria-hidden="true">terminal</span></span><span class="t">setup-qbds-vite.sh</span></div><p>The skill's scaffold script: a Vite + React + TypeScript app with Tailwind, QBDS styles, fonts and the requested registry components.</p></div>
+      </div>
+
+      <div class="sub"><span class="h3-semi">Libraries, and why each one</span></div>
+      <div class="table-wrap libs">
+        <table>
+          <thead><tr><th>Library</th><th>Job</th><th>Why this one</th></tr></thead>
+          <tbody>
+            <tr><td>React 19 · TypeScript 7 · Vite 8</td><td>App framework and build</td><td>What the scaffold script sets up. Vite is the skill's default for single-screen apps.</td></tr>
+            <tr><td>Tailwind CSS v4 · Base UI</td><td>Styling and component behaviour</td><td>QBDS tokens are Tailwind v4 utilities; the registry components are built on Base UI.</td></tr>
+            <tr><td>MapLibre GL JS 5</td><td>The map</td><td>Open source, WebGL, needs no API key, and draws GeoJSON natively. Feature state makes highlighting cheap.</td></tr>
+            <tr><td>CodeMirror 6</td><td>The JSON editor</td><td>Small, modular, and its theme can read CSS variables, so it follows the QBDS theme switch for free.</td></tr>
+            <tr><td>jsonc-parser</td><td>Error locations and text ranges</td><td>Gives the exact line and column of a syntax error, and maps each feature to its range in the text.</td></tr>
+            <tr><td>Vitest · Playwright · oxlint</td><td>Tests and linting</td><td>Fast unit tests for the data layer; real-browser tests using the installed Chrome (no browser download).</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ======================= RESEARCH ======================= -->
+    <section id="research">
+      <div class="sec-head">
+        <div class="eyebrow"><span class="dot" style="background: var(--c-peri)"></span>Step 0 · before the skill starts</div>
+        <h2 class="h1">Take the reference apart</h2>
+        <p class="p-large">"Like geojson.tools" is vague, so the agent made it precise. It read the reference site's page and its JavaScript bundle and wrote down every behaviour. The stage 1 doc asks for this: "Understand the brief thoroughly. Read the host/product if named — don't guess."</p>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="eyebrow" style="margin-bottom: 12px">What was read</div>
+          <div class="chips">
+            <span class="chip">index.html</span><span class="chip">index.js</span><span class="chip">loadData.js</span><span class="chip">hereMap.js</span><span class="chip">coordTools.js</span><span class="chip">heatMap.js</span><span class="chip">propertyLabels.js</span><span class="chip">eventHandling.js</span><span class="chip">common.js</span><span class="chip">tile overlays</span>
+          </div>
+          <div class="eyebrow" style="margin: 20px 0 12px">What it confirmed</div>
+          <ul class="prose" style="padding-left: 18px; display: grid; gap: 6px; font-size: 13.5px;">
+            <li>The map is drawn with <strong>HERE XYZ Maps</strong> (<code>@here/xyz-maps</code>), as the brief suspected, and the editor is Monaco.</li>
+            <li>It's open source under MIT, by HERE.</li>
+            <li>Its <strong>HERE API key sits inside the public bundle</strong>. That key belongs to HERE, so it was never used.</li>
+            <li>Its heat map works by writing colours into your JSON.</li>
+          </ul>
+        </div>
+        <div class="card">
+          <div class="eyebrow" style="margin-bottom: 12px">Behaviour list carried over</div>
+          <ul class="prose" style="padding-left: 18px; display: grid; gap: 6px; font-size: 13.5px;">
+            <li>Map and panel side by side, with a draggable divider and a map-only mode</li>
+            <li>JSON editor that redraws the map on every valid edit</li>
+            <li>Load by file picker, by dropping on the map or on the editor (which merges), or by URL with an optional Authorization header</li>
+            <li>Deep links: <code>?url=</code>, <code>#url=</code>, several URLs split by <code>;</code>, <code>?maponly</code>, <code>?map=lng,lat,zoom</code></li>
+            <li>Per-feature validation, with an alert listing the features that failed</li>
+            <li>Click a feature: highlight it, show its properties, zoom to it, select its text in the editor</li>
+            <li>Click a property: highlight every feature with the same value</li>
+            <li>Coordinate tools (point, distance, bounding box), labels, heat map, tile grids</li>
+            <li>The view is remembered between visits</li>
+          </ul>
+        </div>
+      </div>
+      <div class="note" style="margin-top: 16px"><span class="ms" aria-hidden="true">rule</span><div><strong>The line drawn here</strong>Carry over the behaviour and nothing else. The look, the code and the map stack would all be new, and the reference's branding would not be copied. That rule went into the plan as a constraint.</div></div>
+    </section>
+
+    <!-- ======================= REQUIREMENTS ======================= -->
+    <section id="requirements">
+      <div class="sec-head">
+        <div class="eyebrow"><span class="dot" style="background: var(--c-blue)"></span>Stage 1 · requirements</div>
+        <h2 class="h1">One goal, and where the code lands</h2>
+        <p class="p-large">The skill wants this stage kept lean: one <code>goal</code>, the <code>actors</code>, a <code>delivery</code> contract, capability-level <code>scope</code>, and the <code>constraints</code> and <code>assumptions</code>. No screens and no stories yet. The stage can only close when <code>openQuestions</code> is empty.</p>
+      </div>
+
+      <div class="grid-2" style="align-items: start">
+        <div>
+          <div class="code-title"><span class="ms" aria-hidden="true" style="font-size: 16px">data_object</span>docs/plan/geojson-studio.ui-plan.json · requirements</div>
+<pre class="wrap"><span class="c">// excerpt</span>
+<span class="k">"goal"</span>: <span class="s">"Let anyone drop, paste, or link GeoJSON and immediately see it on an interactive map, then inspect, edit, measure, and style the features — built with QBDS."</span>,
+<span class="k">"actors"</span>: [
+  <span class="s">"analyst checking a geospatial export"</span>,
+  <span class="s">"data engineer debugging GeoJSON produced by a pipeline"</span>,
+  <span class="s">"consultant preparing a quick map for a client conversation"</span>
+],
+<span class="k">"delivery"</span>: {
+  <span class="k">"mode"</span>: <span class="s">"greenfield"</span>,
+  <span class="k">"targets"</span>: [<span class="s">"."</span>],
+  <span class="k">"notes"</span>: <span class="s">"Vite (skill default): single-screen client-only tool, no SSR or routing needs, static hosting."</span>
+},
+<span class="k">"scope"</span>: [ <span class="c">/* 12 capability items */</span> ],
+<span class="k">"constraints"</span>: [
+  <span class="s">"QBDS only: @qbds registry components, TOKENS.md utilities, Material Symbols Sharp icons, no raw hex in UI chrome …"</span>,
+  <span class="s">"Must work with no API keys …"</span>,
+  <span class="s">"Do not copy the reference product's branding, logo, or look"</span>
+],
+<span class="k">"openQuestions"</span>: [],
+<span class="k">"assumptions"</span>: [ <span class="c">/* 8 decisions, see the questions below */</span> ]</pre>
+        </div>
+        <div class="prose">
+          <p><strong>Why greenfield?</strong> The skill sorts every job into one of three <em>delivery modes</em>: <code>greenfield</code> (a new app in an empty folder), <code>pages</code> (new screens in an existing app) or <code>feature</code> (a change inside an existing screen). Nothing existed yet, so this is greenfield. That puts the shell, routing and QBDS setup in scope, and calls for the scaffold script.</p>
+          <p><strong>Why the actors matter.</strong> Three kinds of user shaped later choices. The analyst wants to see data <em>now</em>, so the app has instant load and samples. The data engineer needs exact error locations, so it has the gutter markers and an error list. The consultant needs labels and colours for a client call.</p>
+          <p><strong>Scope, 12 items:</strong> split layout, the loaders, live editor with validation, every geometry type with simplestyle, inspection and two-way sync, type filters, coordinate tools, labels and choropleth, tile grid, basemaps, theme and persistence, and tests.</p>
+        </div>
+      </div>
+
+      <div class="sub"><span class="h3-semi">Questions the agent would have asked here</span><span class="faint label-small">answered as decisions instead</span></div>
+      <div class="decisions">
+        <article class="dq"><div class="q"><span class="ms" aria-hidden="true">help</span><span>The reference draws its map with HERE XYZ Maps. Use the same SDK?</span></div><div class="opts"><span class="tag">HERE XYZ Maps</span><span class="tag on">MapLibre GL JS</span></div><p class="why">HERE's SDK shows no basemap without an API key, and the only key at hand was the one inside the reference's bundle, which belongs to HERE. MapLibre draws the same GeoJSON on free basemaps (CARTO, OpenFreeMap). HERE basemaps come back automatically if you add your own key.</p></article>
+        <article class="dq"><div class="q"><span class="ms" aria-hidden="true">help</span><span>Monaco, like the reference, or a lighter editor?</span></div><div class="opts"><span class="tag">Monaco</span><span class="tag on">CodeMirror 6</span></div><p class="why">A fraction of the size, and its theme reads QBDS CSS variables, so dark and light just work with no second theme to maintain.</p></article>
+        <article class="dq"><div class="q"><span class="ms" aria-hidden="true">help</span><span>Vite or Next.js?</span></div><div class="opts"><span class="tag on">Vite</span><span class="tag">Next.js</span></div><p class="why">The skill's default. It's one screen with no routes and no server rendering, and it deploys as static files.</p></article>
+        <article class="dq"><div class="q"><span class="ms" aria-hidden="true">help</span><span>Where should the code go?</span></div><div class="opts"><span class="tag on">New folder, isolated copy</span><span class="tag">Inside an existing app</span></div><p class="why">The brief asked for a separate work tree. The folder went into <code>delivery.targets</code>, which is the skill's write contract: nothing outside it gets touched.</p></article>
+        <article class="dq"><div class="q"><span class="ms" aria-hidden="true">help</span><span>Which reference features are in scope?</span></div><div class="opts"><span class="tag on">All but three</span><span class="tag">Everything</span></div><p class="why">Left out: HERE Data Hub spaces (a retired HERE service), HERE-only <code>association_ids</code> highlighting, and the HERE tiling scheme. All three need HERE credentials. XYZ, quadkey and TMS grids replace the HERE scheme.</p></article>
+        <article class="dq"><div class="q"><span class="ms" aria-hidden="true">help</span><span>The reference's heat map rewrites your JSON. Do the same?</span></div><div class="opts"><span class="tag">Edit the JSON</span><span class="tag on">Colour at render time</span></div><p class="why">A viewer should never change your data behind your back. Colours are computed when the map is drawn, and the JSON stays as you wrote it.</p></article>
+        <article class="dq"><div class="q"><span class="ms" aria-hidden="true">help</span><span>Fetch samples from the web, or ship them?</span></div><div class="opts"><span class="tag">Remote links</span><span class="tag on">Bundled, generated</span></div><p class="why">Works offline and never fails on a host that blocks cross-origin requests. Loading by URL still covers remote data.</p></article>
+        <article class="dq"><div class="q"><span class="ms" aria-hidden="true">help</span><span>What about very large files? And tests?</span></div><div class="opts"><span class="tag on">Editor read-only over 10 MB</span><span class="tag on">Unit + browser tests</span></div><p class="why">The map still draws big files; only the editor steps aside. The brief said "test all of it", so tests went into scope as their own item.</p></article>
+      </div>
+    </section>
+
+    <!-- ======================= UX ======================= -->
+    <section id="ux">
+      <div class="sec-head">
+        <div class="eyebrow"><span class="dot" style="background: var(--c-violet)"></span>Stage 2 · UX design</div>
+        <h2 class="h1">Six stories that complete the goal</h2>
+        <p class="p-large">The skill's model is one goal, split into several stories. Each story has the same three parts: the <code>story</code> (who wants what and why), the <code>visual</code> (what's on screen) and the <code>interaction</code> (what happens when you act). The skill prefers "fewer sharp stories over one mega-story".</p>
+      </div>
+
+      <div class="note" style="margin-bottom: 20px"><span class="ms" aria-hidden="true">space_dashboard</span><div><strong>The UX context, decided first</strong>The map is the hero, about 62% of the width, and panels never cover it. The tool panel sits on the right, about 38%, with Editor, Data and Tools tabs. Density is compact, because this is a working tool, not a dashboard. Short-lived results go in toasts; lasting problems go in an inline alert. Map data is coloured like chart data.</div></div>
+
+      <div class="stories">
+        <article class="story"><div class="top"><span class="ico"><span class="ms" aria-hidden="true">upload_file</span></span><span class="id">load</span></div><span class="t">Load data</span><p>An analyst has a GeoJSON export and wants to see it now: drop files anywhere, browse, paste a URL, or pick a sample. Shared <code>?url=</code> links load on open.</p><dl><dt>Visual</dt><dd>Data tab with Files, From URL and Samples; a full-window overlay while dragging.</dd><dt>Interaction</dt><dd>Several files merge into one collection; the map fits the data; a toast confirms.</dd></dl></article>
+        <article class="story"><div class="top"><span class="ico"><span class="ms" aria-hidden="true">edit_note</span></span><span class="id">edit</span></div><span class="t">Edit and validate</span><p>A data engineer fixes a broken export, watches the map update as they type, and is told exactly which features are wrong and why.</p><dl><dt>Visual</dt><dd>Action row, validation status, an alert listing failures, and an editor with lint markers.</dd><dt>Interaction</dt><dd>Redraw 300 ms after typing stops; invalid JSON keeps the last good map.</dd></dl></article>
+        <article class="story"><div class="top"><span class="ico"><span class="ms" aria-hidden="true">ads_click</span></span><span class="id">inspect</span></div><span class="t">Inspect features</span><p>Click a polygon to see its attributes, find every feature sharing a value, and jump between the map and the JSON.</p><dl><dt>Visual</dt><dd>Floating inspector card on the map; Points / Lines / Polygons filter chips with counts.</dd><dt>Interaction</dt><dd>Map selection selects the JSON text; the editor cursor highlights on the map.</dd></dl></article>
+        <article class="story"><div class="top"><span class="ico"><span class="ms" aria-hidden="true">straighten</span></span><span class="id">measure</span></div><span class="t">Measure and capture</span><p>A consultant needs an exact coordinate, the length of a route, and the bounding box of an area to paste into a query.</p><dl><dt>Visual</dt><dd>Pick point / Measure / Bounding box toggles, a result block and a hint bar on the map.</dd><dt>Interaction</dt><dd>Click to add points, double-click to finish; copy the result or add it to the data.</dd></dl></article>
+        <article class="story"><div class="top"><span class="ico"><span class="ms" aria-hidden="true">format_paint</span></span><span class="id">style</span></div><span class="t">Label and colour</span><p>Before a client call, the consultant labels each district with its name and colours districts by population.</p><dl><dt>Visual</dt><dd>Label and choropleth selects, and a nine-step sequential legend with min and max.</dd><dt>Interaction</dt><dd>Render-only styling; simplestyle colours are honoured unless a choropleth is on.</dd></dl></article>
+        <article class="story"><div class="top"><span class="ico"><span class="ms" aria-hidden="true">map</span></span><span class="id">map</span></div><span class="t">Navigate the map</span><p>Anyone pans, zooms, tilts and switches basemaps, and expects the app to remember where they were next time.</p><dl><dt>Visual</dt><dd>Vertical boxed toolbar, basemap menu, tile grid toggle, cursor readout.</dd><dt>Interaction</dt><dd>Fit, reset north, map-only with Esc, resizable split, view saved locally.</dd></dl></article>
+      </div>
+
+      <div class="sub"><span class="h3-semi">Questions the agent would have asked here</span><span class="faint label-small">answered as decisions instead</span></div>
+      <div class="decisions">
+        <article class="dq"><div class="q"><span class="ms" aria-hidden="true">help</span><span>What colour are features on the map?</span></div><div class="opts"><span class="tag">Brand accent</span><span class="tag on">Chart palette</span></div><p class="why">DESIGN.md allows raw colours only for chart data, and map features <em>are</em> data. So: qualitative colour 1 (blue) for features, colour 7 (pink) for the selection, colour 3 (cyan) for matches, and the sequential scale for the choropleth.</p></article>
+        <article class="dq"><div class="q"><span class="ms" aria-hidden="true">help</span><span>How should problems show up?</span></div><div class="opts"><span class="tag on">Inline alert + gutter</span><span class="tag on">Toasts for results</span></div><p class="why">Validation failures persist until fixed, so they get an alert and gutter markers. Short-lived results (loaded, copied, highlighted) get toasts, which go away on their own.</p></article>
+      </div>
+    </section>
+
+    <!-- ======================= UI STRUCTURE ======================= -->
+    <section id="ui">
+      <div class="sec-head">
+        <div class="eyebrow"><span class="dot" style="background: var(--c-cyan)"></span>Stage 3 · UI structure</div>
+        <h2 class="h1">Every region traced to an official example</h2>
+        <p class="p-large">This stage turns stories into components. The skill sets a strict order: search the registry, read the component's API, then <strong>fetch its examples</strong> and pick the one that fits the use case. A new component is allowed only when nothing in the registry covers the need. When an example disagrees with the UX sketch, <strong>the example wins</strong>, and the change is written down.</p>
+      </div>
+
+      <div class="wire-wrap">
+        <figure>
+          <div class="wire" role="img" aria-label="Wireframe of the app with each region numbered: header, map search, inspector, map toolbar, tool hint, geometry filters, panel resizer, panel tabs, editor and toasts">
+            <div class="w-head"><div class="reg" style="inset: 18% 1% 18% 1%"><span class="n">1</span>Header · logo · title · status · theme</div></div>
+            <div class="w-body">
+              <div class="w-map">
+                <svg class="data" viewBox="0 0 620 420" preserveAspectRatio="none" aria-hidden="true">
+                  <polygon points="300,170 360,140 420,170 410,230 350,250 300,220" fill="#097DFE" fill-opacity="0.14" stroke="#097DFE" stroke-opacity="0.7" stroke-width="1.5"/>
+                  <path d="M120 330 C 220 240, 330 210, 470 120" fill="none" stroke="#05D0F0" stroke-opacity="0.7" stroke-width="1.5"/>
+                  <g fill="#097DFE" fill-opacity="0.8"><circle cx="240" cy="300" r="4"/><circle cx="420" cy="290" r="4"/><circle cx="470" cy="120" r="4"/></g>
+                  <circle cx="356" cy="196" r="6" fill="#E77EC2"/>
+                </svg>
+                <div class="reg" style="left: 2.5%; top: 3%; width: 38%; height: 8%"><span class="n">2</span>Map search</div>
+                <div class="reg" style="left: 2.5%; top: 14%; width: 38%; height: 40%"><span class="n">3</span>Inspector card</div>
+                <div class="reg" style="right: 2.5%; top: 3%; width: 8%; height: 50%; flex-direction: column; align-items: center"><span class="n">4</span></div>
+                <div class="reg" style="left: 30%; bottom: 13%; width: 40%; height: 9%"><span class="n">5</span>Tool hint</div>
+                <div class="reg" style="left: 2.5%; bottom: 3%; width: 30%; height: 8%"><span class="n">6</span>Filters</div>
+                <div class="reg" style="right: 2.5%; bottom: 3%; width: 25%; height: 8%">Cursor readout</div>
+                <div class="reg new" style="right: -5px; top: 40%; width: 10px; height: 20%; padding: 0"></div>
+              </div>
+              <div class="w-panel">
+                <div class="reg" style="left: 4%; top: 2%; width: 92%; height: 9%"><span class="n">8</span>Editor · Data · Tools</div>
+                <div class="reg" style="left: 4%; top: 14%; width: 92%; height: 75%"><span class="n">9</span>Actions · alert · JSON editor</div>
+                <div class="reg" style="right: 4%; bottom: 2%; width: 70%; height: 7%"><span class="n">10</span>Toasts</div>
+              </div>
+            </div>
+          </div>
+          <figcaption class="faint label-small" style="margin-top: 8px">Regions as planned in <code>ui_structure.regions</code>. The pink outline is new component 7, the panel resizer.</figcaption>
+        </figure>
+        <div class="legend" aria-label="Region legend">
+          <div class="row"><span class="n">1</span><div>Header<span class="ex">sidebar.json#SidebarApp (AppHeader)</span></div></div>
+          <div class="row"><span class="n">2</span><div>Map search<span class="ex">input-group#InputGroupLeadingIcon</span></div></div>
+          <div class="row"><span class="n">3</span><div>Inspector<span class="ex">card#DefaultCard + table#TableSizes</span></div></div>
+          <div class="row"><span class="n">4</span><div>Map toolbar<span class="ex">toolbar#ToolbarVertical + dropdown-menu#DropdownMenuWithRadioGroup</span></div></div>
+          <div class="row"><span class="n">5</span><div>Tool hint<span class="ex">button#ButtonVariants</span></div></div>
+          <div class="row"><span class="n">6</span><div>Geometry filters<span class="ex">tag-toggle#TagToggleDemo</span></div></div>
+          <div class="row new"><span class="n">7</span><div>Panel resizer<span class="ex">new component: no splitter in the registry</span></div></div>
+          <div class="row"><span class="n">8</span><div>Panel tabs<span class="ex">tabs#TabsDemo</span></div></div>
+          <div class="row"><span class="n">9</span><div>Editor tab<span class="ex">button#ButtonWithIcons + alert#AlertVariants</span></div></div>
+          <div class="row"><span class="n">10</span><div>Toasts<span class="ex">sonner#SonnerVariants</span></div></div>
+        </div>
+      </div>
+
+      <div class="sub"><span class="h3-semi">23 registry installs</span><span class="faint label-small">the union of every region, checked against registry.json</span></div>
+      <div class="chips">
+        <span class="chip">@qbds/button</span><span class="chip">@qbds/icon</span><span class="chip">@qbds/icon-shell</span><span class="chip">@qbds/tooltip</span><span class="chip">@qbds/badge</span><span class="chip">@qbds/toolbar</span><span class="chip">@qbds/toggle</span><span class="chip">@qbds/toggle-group</span><span class="chip">@qbds/dropdown-menu</span><span class="chip">@qbds/input</span><span class="chip">@qbds/input-group</span><span class="chip">@qbds/field</span><span class="chip">@qbds/label</span><span class="chip">@qbds/select</span><span class="chip">@qbds/switch</span><span class="chip">@qbds/tag-toggle</span><span class="chip">@qbds/card</span><span class="chip">@qbds/table</span><span class="chip">@qbds/alert</span><span class="chip">@qbds/sonner</span><span class="chip">@qbds/separator</span><span class="chip">@qbds/scroll-area</span><span class="chip">@qbds/tabs</span>
+      </div>
+
+      <div class="sub"><span class="h3-semi">5 new components</span><span class="faint label-small">each one only after the registry came up empty</span></div>
+      <div class="newc">
+        <div class="item"><span class="t">MapView</span><p>No map, canvas or geospatial component exists, and DESIGN.md covers charts but not maps.</p></div>
+        <div class="item"><span class="t">GeoJsonEditor</span><p>No code editor; <code>@qbds/textarea</code> can't do line numbers, folding or lint markers.</p></div>
+        <div class="item"><span class="t">PanelResizer</span><p>No resizable or splitter primitive in the registry.</p></div>
+        <div class="item"><span class="t">FileDrop</span><p>No dropzone or file-upload component in the registry.</p></div>
+        <div class="item"><span class="t">ChoroplethLegend</span><p>No legend component; the chart guidance only covers ECharts' visualMap.</p></div>
+      </div>
+      <p class="faint label-small" style="margin-top: 10px">Each entry in the plan records what was searched (<code>whyNotQbds</code>), plus the tokens, states, accessibility and props, so the build stage doesn't have to guess.</p>
+
+      <div class="sub"><span class="h3-semi">Where the example won</span><span class="faint label-small">recorded in <code>uxAdjustments</code></span></div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th style="width: 26%">Change</th><th>What happened</th></tr></thead>
+          <tbody>
+            <tr><td>App shell</td><td>The skill's shell recipe is <code>SidebarApp</code>, but this tool has no navigation. The example's header composition was kept and the sidebar left out.</td></tr>
+            <tr><td>Zoom readout</td><td>The vertical toolbar only composes buttons, groups and separators, so the zoom level became a plain label row between two separators.</td></tr>
+            <tr><td>Basemap picker</td><td>Follows <code>DropdownMenuWithRadioGroup</code> exactly, opened from a toolbar button.</td></tr>
+            <tr><td>Validation alert</td><td>The example uses a modal-style alert; the narrow editor panel uses the full-width "long" layout instead.</td></tr>
+            <tr><td>Empty state</td><td>The skill's docs cite <code>@qbds/empty</code>, which doesn't exist in the registry. The empty state was composed from IconShell, text and a Button.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ======================= BUILD ======================= -->
+    <section id="build">
+      <div class="sec-head">
+        <div class="eyebrow"><span class="dot" style="background: var(--c-green)"></span>Stage 4 · build</div>
+        <h2 class="h1">Scaffold, fix, assemble</h2>
+        <p class="p-large">The build stage is deliberately boring: "Implement the confirmed plan. Do not redesign." It runs in a fixed order: scaffold, wire QBDS, install from the plan, assemble the regions, build the new components, then record every deviation.</p>
+      </div>
+
+      <div class="code-title"><span class="ms" aria-hidden="true" style="font-size: 16px">terminal</span>Scaffolding with the skill's own script</div>
+<pre><span class="pr">$ </span>bash setup-qbds-vite.sh geojson-studio @qbds/button @qbds/icon @qbds/icon-shell @qbds/tooltip \
+    @qbds/badge @qbds/toolbar @qbds/toggle @qbds/toggle-group @qbds/dropdown-menu @qbds/input \
+    @qbds/input-group @qbds/field @qbds/label @qbds/select @qbds/switch @qbds/tag-toggle \
+    @qbds/card @qbds/table @qbds/alert @qbds/sonner @qbds/separator @qbds/scroll-area @qbds/tabs
+<span class="c"># creates a Vite + React + TypeScript app with Tailwind v4, QBDS styles and the 23 components</span>
+
+<span class="pr">$ </span>npm run build
+<span class="e">tsconfig.app.json(18,5): error TS5102: Option 'baseUrl' has been removed.</span>
+<span class="e">src/components/dropdown-menu.tsx: error TS2307: Cannot find module '@/app/demo/[name]/ui/action-menu-examples.shared'</span>
+<span class="c"># (excerpt; the demo file produced four errors in all)</span></pre>
+
+      <div class="sub"><span class="h3-semi">The untouched scaffold didn't build</span></div>
+      <div class="grid-3">
+        <div class="card"><div class="eyebrow" style="margin-bottom: 8px">Fix 1</div><div class="h4-semi">Remove <code>baseUrl</code></div><p class="muted" style="margin-top: 6px; font-size: 13px; line-height: 19px">The script takes the latest Vite template, which now ships TypeScript 7, where <code>baseUrl</code> no longer exists. Path aliases still work without it.</p></div>
+        <div class="card"><div class="eyebrow" style="margin-bottom: 8px">Fix 2</div><div class="h4-semi">Delete a demo file</div><p class="muted" style="margin-top: 6px; font-size: 13px; line-height: 19px">The dropdown-menu item also installs a demo file from the design system's website, which imports pages that only exist there.</p></div>
+        <div class="card"><div class="eyebrow" style="margin-bottom: 8px">Fix 3</div><div class="h4-semi">Sharp icons only</div><p class="muted" style="margin-top: 6px; font-size: 13px; line-height: 19px">The CSS imported all three Material Symbols families, about 13 MB of fonts. DESIGN.md allows only Sharp, so only Sharp is loaded.</p></div>
+      </div>
+      <div class="note" style="margin-top: 16px"><span class="ms" aria-hidden="true">balance</span><div><strong>A judgement call</strong>The skill says "do not hand-roll" the scaffold. So the agent kept the script's output, made the three smallest fixes that would get it building, and recorded each one in <code>build.deviations</code>. It did not start over by hand.</div></div>
+
+      <div class="sub"><span class="h3-semi">Build order</span><span class="faint label-small">the pure logic first, so it could be tested before any pixels existed</span></div>
+      <ol class="timeline">
+        <li><span class="mk">01</span><div><div class="t">Data layer: plain functions, no React</div><p>Parse and validate GeoJSON (positions, ring closure, vertex counts, latitude range), plus bounding boxes, distances, Web Mercator tiles and quadkeys, property lookups, editor text ranges, and the data shaped for MapLibre.</p><div class="chips"><span class="chip">lib/geo/normalize.ts</span><span class="chip">bbox.ts</span><span class="chip">measure.ts</span><span class="chip">tiles.ts</span><span class="chip">locate.ts</span><span class="chip">render.ts</span><span class="chip">draw.ts</span></div></div></li>
+        <li><span class="mk">02</span><div><div class="t">One state store for the whole app</div><p>Text and analysis (debounced 300 ms while typing, immediate on load), selection, tools, view, theme and panel width. It also handles persistence, the file and URL loaders, and deep-link parsing.</p><div class="chips"><span class="chip">state/studio.tsx</span><span class="chip">lib/loaders.ts</span><span class="chip">persistence.ts</span><span class="chip">urlParams.ts</span></div></div></li>
+        <li><span class="mk">03</span><div><div class="t">The map</div><p>MapLibre with one GeoJSON source. Selection, matches and hover are feature state, so clicking never re-uploads data. Polygon fills sit under the basemap's labels. The toolbar, search, inspector and overlays come from their examples.</p><div class="chips"><span class="chip">MapView.tsx</span><span class="chip">layers.ts</span><span class="chip">MapToolbar.tsx</span><span class="chip">FeatureInspector.tsx</span></div></div></li>
+        <li><span class="mk">04</span><div><div class="t">The editor</div><p>CodeMirror themed entirely from QBDS CSS variables: lint gutter, error list, and two-way sync with the map (cursor to feature, selection to text, a flash on jump).</p><div class="chips"><span class="chip">GeoJsonEditor.tsx</span><span class="chip">EditorPane.tsx</span></div></div></li>
+        <li><span class="mk">05</span><div><div class="t">Panels, tools and the shell</div><p>The Data tab (files, URL, samples) and the Tools tab (coordinates, labels, choropleth, tile grid). The header, resizer, tabs, an Esc chain (tool, then selection, then map-only) and toasts.</p><div class="chips"><span class="chip">DataPane.tsx</span><span class="chip">ToolsPane.tsx</span><span class="chip">AppHeader.tsx</span><span class="chip">PanelResizer.tsx</span></div></div></li>
+      </ol>
+
+      <div class="sub"><span class="h3-semi">How the code is layered</span><span class="faint label-small">lines of code per area</span></div>
+      <div class="arch">
+        <div class="layer"><div class="lh"><span class="t"><span class="dot" style="background: var(--c-cyan)"></span>QBDS components</span><span class="faint">written by the shadcn CLI; never edited by hand</span></div><div class="boxes"><div class="box"><div class="bt">components/ui</div><div class="bd">25 files · ~4,800 lines</div></div></div></div>
+        <div class="layer"><div class="lh"><span class="t"><span class="dot" style="background: var(--c-green)"></span>Features</span><span class="faint">screens built from the plan's regions</span></div><div class="boxes"><div class="box"><div class="bt">features/map</div><div class="bd">1,226 lines</div></div><div class="box"><div class="bt">features/editor</div><div class="bd">470 lines</div></div><div class="box"><div class="bt">features/tools</div><div class="bd">270 lines</div></div><div class="box"><div class="bt">features/data</div><div class="bd">228 lines</div></div><div class="box"><div class="bt">components/layout</div><div class="bd">127 lines</div></div></div></div>
+        <div class="layer"><div class="lh"><span class="t"><span class="dot" style="background: var(--c-violet)"></span>State</span><span class="faint">one provider, derived selection</span></div><div class="boxes"><div class="box"><div class="bt">state/studio.tsx</div><div class="bd">417 lines</div></div></div></div>
+        <div class="layer"><div class="lh"><span class="t"><span class="dot" style="background: var(--c-blue)"></span>Data layer</span><span class="faint">pure functions with unit tests</span></div><div class="boxes"><div class="box"><div class="bt">lib/geo</div><div class="bd">1,103 lines</div></div><div class="box"><div class="bt">lib (loaders, samples, palette…)</div><div class="bd">707 lines</div></div></div></div>
+      </div>
+    </section>
+
+    <!-- ======================= VERIFY ======================= -->
+    <section id="verify">
+      <div class="sec-head">
+        <div class="eyebrow"><span class="dot" style="background: var(--c-pink)"></span>Stage 5 · verify (added by the agent)</div>
+        <h2 class="h1">Prove it in a real browser</h2>
+        <p class="p-large">The skill ends at Build. But the brief said "test all of it", and a map app can look fine in code and be broken on screen. So the agent added a verify stage: type-check, lint, unit tests, browser tests that click real pixels on the map, and a look at every screenshot.</p>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="eyebrow" style="margin-bottom: 12px">54 unit tests · Vitest</div>
+          <ul class="prose" style="padding-left: 18px; display: grid; gap: 6px; font-size: 13.5px">
+            <li><code>normalize.test.ts</code>: parsing, validation, swapped coordinates, unclosed rings</li>
+            <li><code>geo-math.test.ts</code>: distances, bounding boxes, tiles, quadkeys, TMS rows</li>
+            <li><code>locate.test.ts</code>: feature to editor-text ranges, append and merge</li>
+            <li><code>app-logic.test.ts</code>: properties, matches, deep links, persistence</li>
+            <li><code>layers.test.ts</code>: evaluates the real MapLibre style expressions</li>
+          </ul>
+        </div>
+        <div class="card">
+          <div class="eyebrow" style="margin-bottom: 12px">11 browser tests · Playwright in Chrome</div>
+          <ul class="prose" style="padding-left: 18px; display: grid; gap: 4px; font-size: 13.5px">
+            <li>Empty state renders the shell and the map</li>
+            <li>Sample loads; clicking London opens the inspector</li>
+            <li>The editor cursor highlights a feature on the map</li>
+            <li>Validation problems are listed; syntax errors are located</li>
+            <li>Choropleth colours the hex grid and shows a legend</li>
+            <li>Measuring London to Paris gives about 344 km</li>
+            <li>Several files load and merge</li>
+            <li>A <code>?url=</code> deep link loads remote data</li>
+            <li>The tile grid shows tile ids and tile info</li>
+            <li>Every geometry type renders, with simplestyle</li>
+            <li>Light theme and map-only mode</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="sub"><span class="h3-semi">Bugs that only a browser could find</span><span class="faint label-small">every one fixed, most with a test so it can't return</span></div>
+      <div class="bugs">
+        <article class="bug"><header><span class="t">The map ignored every click</span><span class="tag">browser test</span></header><dl><dt>Symptom</dt><dd>No click on the map registered at all.</dd><dt>Cause</dt><dd>MapLibre's own stylesheet sets <code>position: relative</code> on the map. That CSS isn't in a cascade layer, so it beat Tailwind v4's layered <code>absolute inset-0</code> and collapsed the map's hit area.</dd><dt>Fix</dt><dd>Put the Tailwind positioning on a wrapper div and leave the library's element alone.</dd></dl></article>
+        <article class="bug"><header><span class="t">Every line was 0 px wide</span><span class="tag">screenshot</span></header><dl><dt>Symptom</dt><dd>Lines were invisible and polygons had no fill.</dd><dt>Cause</dt><dd>In MapLibre expressions, <code>to-number(null)</code> is <code>0</code>, not the fallback. Features without a <code>stroke-width</code> property got width 0.</dd><dt>Fix</dt><dd>Guard every style property with <code>has</code>, plus a test that evaluates the real expressions.</dd></dl></article>
+        <article class="bug"><header><span class="t">Clicking London selected Dublin</span><span class="tag">browser test</span></header><dl><dt>Symptom</dt><dd>At world zoom, the wrong capital opened.</dd><dt>Cause</dt><dd>Point hit boxes overlap, and the first match won.</dd><dt>Fix</dt><dd>Pick the point nearest to the cursor on screen.</dd></dl></article>
+        <article class="bug"><header><span class="t">The "swapped coordinates" sample passed</span><span class="tag">unit test</span></header><dl><dt>Symptom</dt><dd>A deliberately broken sample showed no error.</dd><dt>Cause</dt><dd>Edinburgh with lng and lat swapped is still a valid place, in the Indian Ocean near the Seychelles.</dd><dt>Fix</dt><dd>Use San Francisco instead: swapped, its latitude would be −122, which is impossible.</dd></dl></article>
+        <article class="bug"><header><span class="t">A pressed toolbar button went blank</span><span class="tag">screenshot</span></header><dl><dt>Symptom</dt><dd>The tile grid button showed an empty square when on.</dd><dt>Cause</dt><dd>The icon colour equalled the pressed fill colour when the button was used on its own.</dd><dt>Fix</dt><dd>Switch the icon to the inverse colour in the pressed state. Logged as finding F10.</dd></dl></article>
+        <article class="bug"><header><span class="t">Selected text was unreadable</span><span class="tag">screenshot</span></header><dl><dt>Symptom</dt><dd>Selecting JSON in dark mode hid the text.</dd><dt>Cause</dt><dd>The planned selection token was 88% opaque.</dd><dt>Fix</dt><dd>Use <code>--fill-tertiary</code>, recorded as a deviation.</dd></dl></article>
+      </div>
+      <p class="faint label-small" style="margin-top: 14px">Smaller fixes from the screenshot review: map labels were italic (the basemap's font list starts with an italic face), polygon labels were offset like point labels, the tool hint covered the search box, the editor status was clipped, and the map attribution lost its styling to MapLibre's CSS.</p>
+    </section>
+
+    <!-- ======================= RESULT ======================= -->
+    <section id="result">
+      <div class="sec-head">
+        <div class="eyebrow"><span class="dot" style="background: var(--c-lime)"></span>The result</div>
+        <h2 class="h1">What came out the other end</h2>
+        <p class="p-large">These screenshots were taken by the browser tests themselves, so every image here is also a passing test.</p>
+      </div>
+      <div class="gallery">
+        <figure><img src="screenshots/02-capitals-inspector.png" alt="World capitals on a dark map; London selected; inspector card showing its properties; twelve European capitals highlighted" loading="lazy" /><figcaption><b>Inspect.</b> London selected, and every capital with continent = Europe highlighted.</figcaption></figure>
+        <figure><img src="screenshots/03-validation.png" alt="Validation alert listing three features that could not be drawn, with gutter markers in the editor" loading="lazy" /><figcaption><b>Validate.</b> Broken features listed, with the exact reason and a jump link.</figcaption></figure>
+        <figure><img src="screenshots/04-choropleth-labels.png" alt="Hexagon grid coloured on a sequential blue scale with band labels and a legend" loading="lazy" /><figcaption><b>Style.</b> Choropleth on the QBDS sequential scale, with labels.</figcaption></figure>
+        <figure><img src="screenshots/05-measure.png" alt="Measure tool line from London to Paris with the total distance in the Tools panel" loading="lazy" /><figcaption><b>Measure.</b> London to Paris by great-circle distance.</figcaption></figure>
+        <figure><img src="screenshots/06-tile-grid.png" alt="Web Mercator tile grid over London with tile ids and a tile info card" loading="lazy" /><figcaption><b>Tiles.</b> z/x/y, TMS row and quadkey for any tile.</figcaption></figure>
+        <figure><img src="screenshots/07-routes-light.png" alt="Long-haul flight routes drawn as great circles in the light theme" loading="lazy" /><figcaption><b>Light theme.</b> The same tokens; no extra theme code.</figcaption></figure>
+      </div>
+    </section>
+
+    <!-- ======================= FIDELITY ======================= -->
+    <section id="fidelity">
+      <div class="sec-head">
+        <div class="eyebrow">Honest scorecard</div>
+        <h2 class="h1">How closely the skill was followed</h2>
+        <p class="p-large">Measured against the skill's own written rules. "Adapted" means the skill allows it in just build mode or it was a reasonable reading. "Deviated" means the agent knowingly did something else, and why.</p>
+      </div>
+      <div class="meter" aria-hidden="true"><span style="width: 62.5%; background: var(--c-green)"></span><span style="width: 18.75%; background: var(--c-cyan)"></span><span style="width: 18.75%; background: var(--c-pink)"></span></div>
+      <div class="meter-legend"><span><span class="sev" style="background: var(--c-green)"></span>10 followed</span><span><span class="sev" style="background: var(--c-cyan)"></span>3 adapted</span><span><span class="sev" style="background: var(--c-pink)"></span>3 deviated</span></div>
+      <div class="score" style="margin-top: 20px">
+        <div class="col">
+          <header><span class="ms" aria-hidden="true" style="color: var(--c-green)">check</span><span class="t">Followed</span><span class="count">10</span></header>
+          <ul>
+            <li><span class="ms" aria-hidden="true">check</span>One JSON plan, four sections, filled strictly in order</li>
+            <li><span class="ms" aria-hidden="true">check</span>Delivery contract kept: greenfield, one target folder</li>
+            <li><span class="ms" aria-hidden="true">check</span>One goal in requirements, six stories in UX</li>
+            <li><span class="ms" aria-hidden="true">check</span>Registry checked for every UI piece first</li>
+            <li><span class="ms" aria-hidden="true">check</span>An example named for every region; the example won</li>
+            <li><span class="ms" aria-hidden="true">check</span>Five uxAdjustments written down</li>
+            <li><span class="ms" aria-hidden="true">check</span>New components only as a last resort, each with a reason</li>
+            <li><span class="ms" aria-hidden="true">check</span>Scaffolded by script; installs only from the plan</li>
+            <li><span class="ms" aria-hidden="true">check</span>Tokens only in UI chrome; raw hex only for map data</li>
+            <li><span class="ms" aria-hidden="true">check</span>Every divergence recorded in build.deviations</li>
+          </ul>
+        </div>
+        <div class="col">
+          <header><span class="ms" aria-hidden="true" style="color: var(--c-cyan)">tune</span><span class="t">Adapted</span><span class="count">3</span></header>
+          <ul>
+            <li><span class="ms" aria-hidden="true">tune</span><span><strong>Gates skipped, steps kept.</strong> The brief said don't ask, which is the skill's just build mode. Open questions became written assumptions.</span></li>
+            <li><span class="ms" aria-hidden="true">tune</span><span><strong>No per-stage summaries.</strong> With nobody to approve, the Markdown summaries the skill shows at each gate weren't presented; the plan file holds the same content.</span></li>
+            <li><span class="ms" aria-hidden="true">tune</span><span><strong>One examples file.</strong> All examples were read from <code>examples/index.json</code> rather than one file per component. Same data, one request.</span></li>
+          </ul>
+        </div>
+        <div class="col">
+          <header><span class="ms" aria-hidden="true" style="color: var(--c-pink)">alt_route</span><span class="t">Deviated</span><span class="count">3</span></header>
+          <ul>
+            <li><span class="ms" aria-hidden="true">alt_route</span><span><strong>Read ahead.</strong> The skill says to open only the current stage's doc. All of them had already been studied in depth before the build began.</span></li>
+            <li><span class="ms" aria-hidden="true">alt_route</span><span><strong>Edited scaffold output.</strong> Three small fixes; without them nothing would build.</span></li>
+            <li><span class="ms" aria-hidden="true">alt_route</span><span><strong>Added a Verify stage.</strong> Not in the skill. It caught the two worst bugs.</span></li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======================= FINDINGS ======================= -->
+    <section id="findings">
+      <div class="sec-head">
+        <div class="eyebrow">Feedback for the design system</div>
+        <h2 class="h1">What the build found</h2>
+        <p class="p-large">Building a real app tests a design system better than reading its docs. Each of these 14 findings was hit during this build, not found by reading. The full write-up is in <a href="https://github.com/jitu5/geojson-studio/blob/main/docs/qbds-skill-test-report.md">docs/qbds-skill-test-report.md</a>.</p>
+      </div>
+      <div class="findings">
+        <div class="fgroup"><header><span class="t"><span class="sev" style="background: var(--c-magenta)"></span>Blocker</span><span class="display">2</span></header><ul><li><code>F1</code>The scaffold doesn't build on TypeScript 7</li><li><code>F2</code>A registry item installs a website-only demo file</li></ul></div>
+        <div class="fgroup"><header><span class="t"><span class="sev" style="background: var(--c-pink)"></span>High</span><span class="display">3</span></header><ul><li><code>F3</code>All icon fonts imported, about 13 MB</li><li><code>F4</code>Some registry components break DESIGN.md rules</li><li><code>F5</code>Library CSS beats Tailwind v4 utilities</li></ul></div>
+        <div class="fgroup"><header><span class="t"><span class="sev" style="background: var(--c-peri)"></span>Medium</span><span class="display">5</span></header><ul><li><code>F6</code>Light and dark logo files listed the wrong way round</li><li><code>F7</code>The docs cite a component that doesn't exist</li><li><code>F8</code>Examples import modules the skill doesn't mention</li><li><code>F9</code>Header height defined twice, differently</li><li><code>F10</code>Undocumented API traps</li></ul></div>
+        <div class="fgroup"><header><span class="t"><span class="sev" style="background: var(--c-teal)"></span>Low</span><span class="display">4</span></header><ul><li><code>F11</code>Toasts install an unused theme package</li><li><code>F12</code>41 lint warnings on day one</li><li><code>F13</code>No guidance for maps</li><li><code>F14</code>No tests and no verify stage</li></ul></div>
+      </div>
+    </section>
+
+    <!-- ======================= AFTER ======================= -->
+    <section id="after">
+      <div class="sec-head">
+        <div class="eyebrow">After the build</div>
+        <h2 class="h1">From prototype to its own repository</h2>
+        <p class="p-large">After the build, the app was run locally, moved into a standalone repository with a clean history, licensed under Apache-2.0, and given its own identity.</p>
+      </div>
+      <ol class="timeline">
+        <li><span class="mk"><span class="ms" aria-hidden="true" style="font-size: 18px">play_arrow</span></span><div><div class="t">Run it</div><p><code>npm run dev</code>, checked in a real browser at <code>localhost:5173</code>.</p></div></li>
+        <li><span class="mk"><span class="ms" aria-hidden="true" style="font-size: 18px">inventory_2</span></span><div><div class="t">Its own repository</div><p>Copied out with only open-source pieces, re-verified from a clean <code>npm ci</code> (type-check, lint, 54 unit tests, 11 browser tests, build), and committed as one clean commit.</p></div></li>
+        <li><span class="mk"><span class="ms" aria-hidden="true" style="font-size: 18px">gavel</span></span><div><div class="t">Apache-2.0</div><p>The same licence as the design system it's built on.</p></div></li>
+        <li><span class="mk"><span class="ms" aria-hidden="true" style="font-size: 18px">draw</span></span><div><div class="t">A logo of its own</div><p>Three concepts, each checked at 16 to 128 px on both themes and as a browser-tab icon. The Polygon G was chosen.</p></div></li>
+      </ol>
+
+      <div class="logos" style="margin-top: 8px">
+        <div class="logo-card">
+          <div class="row">
+            <svg viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" fill="#0E1525"/><g fill="none" stroke="#05D0F0" stroke-width="5"><path d="M15 13H10V28L6 32L10 36V51H15"/><path d="M49 13H54V28L58 32L54 36V51H49"/></g><circle cx="32" cy="32" r="14" fill="#097DFE"/><g fill="none" stroke="#0E1525" stroke-width="3"><ellipse cx="32" cy="32" rx="5.5" ry="14"/><path d="M18 32H46"/></g></svg>
+            <div><div class="t">A · Braced Globe</div><p>JSON braces around the Earth. The most literal.</p></div>
+          </div>
+        </div>
+        <div class="logo-card">
+          <div class="row">
+            <svg viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" fill="#0E1525"/><polygon points="32,5 49,14.5 49,31 32,59 15,31 15,14.5" fill="#097DFE" fill-opacity="0.35" stroke="#097DFE" stroke-width="4" stroke-miterlimit="10"/><circle cx="32" cy="23" r="6.5" fill="#05D0F0"/><g fill="#E77EC2"><rect x="29" y="2" width="6" height="6"/><rect x="46" y="11.5" width="6" height="6"/><rect x="46" y="28" width="6" height="6"/><rect x="29" y="56" width="6" height="6"/><rect x="12" y="28" width="6" height="6"/><rect x="12" y="11.5" width="6" height="6"/></g></svg>
+            <div><div class="t">B · Vertex Pin</div><p>A map pin drawn as an editable polygon.</p></div>
+          </div>
+        </div>
+        <div class="logo-card chosen">
+          <div class="row">
+            <svg viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" fill="#0E1525"/><path d="M53 23.3L40.7 11H23.3L11 23.3V40.7L23.3 53H40.7L53 40.7V32H39" fill="none" stroke="#097DFE" stroke-width="6"/><rect x="49" y="19.3" width="8" height="8" fill="#E77EC2"/><circle cx="36.5" cy="32" r="5.5" fill="#05D0F0"/></svg>
+            <div><div class="t">C · Polygon G</div><p>A G drawn as an unclosed polygon ring: a pink start handle and a cyan cursor point.</p><div style="margin-top: 10px"><span class="tag on">Chosen</span></div></div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<footer>
+  <div class="inner">
+    <svg width="20" height="20" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" fill="#0E1525"/><path d="M53 23.3L40.7 11H23.3L11 23.3V40.7L23.3 53H40.7L53 40.7V32H39" fill="none" stroke="#097DFE" stroke-width="6"/><rect x="49" y="19.3" width="8" height="8" fill="#E77EC2"/><circle cx="36.5" cy="32" r="5.5" fill="#05D0F0"/></svg>
+    <span>GeoJSON Studio · Apache-2.0 · written from the project's plan, test report and build record</span>
+    <span class="spacer"></span>
+    <a href="#top" class="text-link" id="to-top"><span class="ms" aria-hidden="true">arrow_upward</span>Back to top</a>
+  </div>
+</footer>
+
+<script>
+  // Theme toggle: QBDS is dark-first; the light theme swaps the same tokens.
+  const root = document.documentElement;
+  const btn = document.getElementById('theme');
+  const icon = btn.querySelector('.ms');
+  function syncThemeButton() {
+    const dark = root.classList.contains('dark');
+    icon.textContent = dark ? 'light_mode' : 'dark_mode';
+    btn.setAttribute('aria-label', dark ? 'Switch to light theme' : 'Switch to dark theme');
+  }
+  btn.addEventListener('click', () => { root.classList.toggle('dark'); syncThemeButton(); });
+  syncThemeButton();
+
+  // On the deployed site the app sits one level up; opened from disk there is no built app to link to.
+  if (location.protocol.startsWith('http')) document.getElementById('open-app').hidden = false;
+
+  document.getElementById('to-top').addEventListener('click', e => { e.preventDefault(); window.scrollTo({ top: 0 }); });
+
+  // Highlight the section in view in the table of contents.
+  const links = [...document.querySelectorAll('.toc a')];
+  const byId = new Map(links.map(a => [a.getAttribute('href').slice(1), a]));
+  const observer = new IntersectionObserver(entries => {
+    for (const entry of entries) {
+      if (!entry.isIntersecting) continue;
+      links.forEach(l => l.removeAttribute('aria-current'));
+      byId.get(entry.target.id)?.setAttribute('aria-current', 'true');
+    }
+  }, { rootMargin: '-35% 0px -60% 0px' });
+  document.querySelectorAll('main section[id]').forEach(s => observer.observe(s));
+</script>
+</body>
+</html>
