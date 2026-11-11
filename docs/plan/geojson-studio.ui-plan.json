@@ -1,0 +1,306 @@
+{
+  "version": 1,
+  "id": "geojson-studio",
+  "title": "GeoJSON Studio",
+  "mode": "just-build",
+  "requirements": {
+    "status": "confirmed",
+    "goal": "Let anyone drop, paste, or link GeoJSON and immediately see it on an interactive map, then inspect, edit, measure, and style the features — built with QBDS.",
+    "actors": [
+      "analyst checking a geospatial export",
+      "data engineer debugging GeoJSON produced by a pipeline",
+      "consultant preparing a quick map for a client conversation"
+    ],
+    "delivery": {
+      "mode": "greenfield",
+      "targets": ["."],
+      "notes": "Vite (skill default): single-screen client-only tool, no SSR or routing needs, static hosting. Scaffolded with setup-qbds-vite.sh. Reference product for behaviour only: https://geojson.tools (HERE GeoJSON Visualizer)."
+    },
+    "context": {
+      "product": "GeoJSON Studio — a QBDS re-imagining of the behaviour of geojson.tools (HERE's open-source GeoJSON Visualizer, MIT).",
+      "notes": "Studied the reference bundle (src/index.js, loadData.js, hereMap.js, coordTools.js, heatMap.js, propertyLabels.js, eventHandling.js, common.js, tile overlays). Behaviour to carry over: split map | panel layout with draggable splitter; Monaco JSON editor that re-renders the map on every valid edit; load via file picker, drag-drop on map, drag-drop on editor (merge), URL with optional Authorization header, ?url= / #url= deep links (multiple URLs split by ';'), ?maponly=true, ?map=lng,lat,zoom; per-feature validation with an alert listing failed features; click feature -> highlight, properties panel, zoom to bbox, select geometry text in editor; click a property -> highlight every feature with the same key/value; editor cursor inside a feature -> highlight on map; lng,lat input to jump; coordinate tools (pick point, draw line with haversine distance, draw bbox, add result to editor); property labels at feature centroid; heat map (choropleth) by numeric property; quadkey / tile grid overlays (Mercator, HERE, TMS) with tile info popup; basemap switcher; map-only view; view state persisted in localStorage; copy / clear editor. Visual language is NOT carried over — QBDS dark-first, sharp, token-only styling replaces it."
+    },
+    "scope": [
+      "Split layout: map + side panel with draggable splitter and map-only mode",
+      "Load: file picker (multi-file merge), drag-drop, URL + Authorization header, deep links, built-in samples",
+      "Live JSON editor with syntax + GeoJSON validation, format, copy, download, clear with undo",
+      "Map rendering of all GeoJSON geometry types honouring simplestyle properties",
+      "Feature inspection: map click, properties card, zoom-to, property-value highlight, two-way editor sync",
+      "Geometry-type visibility filters with counts",
+      "Coordinate tools: pick point, measure distance, draw bbox, go to lng,lat, add result to data",
+      "Property labels and choropleth (QBDS sequential palette) with legend",
+      "Tile grid overlay (XYZ/quadkey and TMS) with tile info",
+      "Basemaps: dark, light, streets (no key) + HERE raster basemaps when the user provides their own API key",
+      "Dark/light theme toggle; persisted view, basemap, split and last data",
+      "Unit tests for data logic + end-to-end smoke test with screenshots"
+    ],
+    "constraints": [
+      "QBDS only: @qbds registry components, TOKENS.md utilities, Material Symbols Sharp icons, no raw hex in UI chrome (map data colours come from DESIGN.md chart palettes)",
+      "Dark-first, sharp geometry (no radius-mode)",
+      "Must work with no API keys — do not reuse the HERE API key embedded in the reference bundle",
+      "Do not copy the reference product's branding, logo, or look",
+      "All work in an isolated folder; nothing deployed"
+    ],
+    "openQuestions": [],
+    "assumptions": [
+      "Map SDK: MapLibre GL JS instead of @here/xyz-maps. The HERE SDK needs a HERE API key for any basemap; MapLibre renders the same GeoJSON with free vector basemaps (CARTO Dark Matter / Positron, OpenFreeMap Liberty) and still supports pitch/rotate. HERE raster basemaps are added automatically when VITE_HERE_API_KEY is set, so the HERE path is preserved.",
+      "Editor: CodeMirror 6 instead of Monaco — a fraction of the bundle size, and its theme can read QBDS CSS variables so it follows dark/light mode without a second theme definition.",
+      "HERE Data Hub 'space' loading (?space=&access_token=) and HERE-specific 'association_ids' highlighting are out of scope: Data Hub is a retired HERE service and both need HERE credentials.",
+      "The HERE quadkey scheme is replaced by XYZ + Bing-style quadkey and TMS; the HERE tiling scheme needs HERE-specific maths with no use outside HERE products.",
+      "Choropleth colours are applied at render time and do not rewrite the user's JSON (the reference app mutates the editor content).",
+      "Samples are bundled locally (generated, not fetched) so the app works offline from CORS-hostile hosts; URL loading still covers remote data.",
+      "Editor is disabled for inputs over 10 MB; the map still renders them.",
+      "Name 'GeoJSON Studio' is a working title."
+    ]
+  },
+  "uxdesign": {
+    "status": "confirmed",
+    "context": "Greenfield, no host app: QBDS defaults only. Dark default (`class=\"dark\"` on <html>), sharp geometry, Inter + Material Symbols Sharp. Single-screen tool, no routes, so no navigation sidebar: a slim app header (logo, product name, theme toggle, help) above a full-height work area. The work area is a horizontal split: map canvas (left, ~62%, min 320px) | 1px divider with an 8px drag handle | tool panel (right, ~38%, min 320px). The map is the hero: it is never covered by panels except small floating overlays anchored to its corners. Panel content is grouped in tabs (Editor / Data / Tools), mirroring the reference product's tab model but with QBDS Tabs. Density: compact (sm controls, 16px gutters inside the panel) because this is a working tool, not a dashboard. Feedback: transient results go to toasts (Sonner); persistent problems (validation failures) go to an inline Alert in the Editor tab. Map data colours: QBDS qualitative chart colour #1 (#097DFE) for default features, #E77EC2 highlight for selection, sequential palette for choropleth — map data is treated like chart data (DESIGN.md § Chart colours). Basemaps: dark basemap with dark theme and light basemap with light theme unless the user picks one explicitly.",
+    "stories": [
+      {
+        "id": "load",
+        "title": "Load data",
+        "story": "An analyst has a GeoJSON export and wants to see it now. They drop one or more files anywhere on the app, or open the Data tab to browse files, paste a URL (optionally with an Authorization header), or pick a built-in sample. Shared links with ?url= load on open.",
+        "visual": "Data tab: three stacked sections separated by dividers — 'Files' (dashed drop target with icon, helper text and a Browse button), 'From URL' (URL input with trailing Load button, Authorization header input below, helper text), 'Samples' (list of sample rows: name, one-line description, geometry badge, Load button). While a file is dragged over the window, a full-window overlay with an upload icon and 'Drop GeoJSON files to load' appears. While loading, the Load button shows a spinner.",
+        "interaction": "Dropping or picking several files merges them into one FeatureCollection. Loading replaces the editor content, switches to the Editor tab, renders the map and fits it to the data. Success toast: 'N features loaded'. URL load adds ?url= to the address bar so the view can be shared; network/HTTP errors show an error toast with the status. Non-JSON input -> error toast 'The file is not valid JSON'. Over 10 MB -> map renders, editor shows a read-only notice."
+      },
+      {
+        "id": "edit",
+        "title": "Edit and validate",
+        "story": "A data engineer fixes a broken export: they edit coordinates or properties in the editor and watch the map update as they type; validation tells them exactly which features are wrong and why.",
+        "visual": "Editor tab: compact action row (Format, Copy, Download, Clear on the left; validation status on the right: success dot + 'Valid · 25 features' or error dot + 'JSON error line 14'). Below, an Alert (only when features fail) listing up to 5 failures as 'Feature 3: Polygon ring must have at least 4 positions' with a 'Show all' toggle. The editor fills the remaining height: line numbers, folding, lint markers in the gutter, monospace code-text type, colours from QBDS tokens.",
+        "interaction": "Valid JSON re-renders the map 300ms after the last keystroke without refitting the view. Invalid JSON keeps the last good render and shows the syntax error in the gutter and status. Format pretty-prints. Copy writes to clipboard (toast). Download saves data.geojson. Clear empties data and shows a toast with Undo. Dropping a file on the editor merges it with the current content."
+      },
+      {
+        "id": "inspect",
+        "title": "Inspect features",
+        "story": "The analyst clicks a polygon to see its attributes, then wants every feature sharing one of those values, and wants to jump between the map and the JSON.",
+        "visual": "Floating inspector card on the map, top-left under the search field, 360px wide, max 60% of map height with internal scroll: header with feature title (name/title/id property or 'Feature 7'), geometry type badge, close button; a two-column key/value table of properties (values in code-text when not plain strings); footer actions: Zoom to, Copy JSON, Show in editor. Bottom-left of the map: filter chips 'Points 12', 'Lines 3', 'Polygons 9' (tag toggles, pressed = visible). Hovered features show a pointer cursor and a subtle outline.",
+        "interaction": "Click feature -> feature turns highlight colour, inspector opens, editor scrolls to and selects that feature's text. Click a property row -> all features with the same key/value highlight and a toast reads 'Highlighting 4 of 25 features with type = park'. Moving the editor cursor inside a feature highlights it on the map and briefly flashes the editor range. Selecting a 'lng, lat' pair in the editor flies the map there. Click empty map -> clears selection. Esc closes the inspector. Toggling a filter chip hides/shows that geometry family."
+      },
+      {
+        "id": "measure",
+        "title": "Measure and capture coordinates",
+        "story": "A consultant needs exact coordinates of a spot, the distance along a route, and the bounding box of an area to paste into a query.",
+        "visual": "Tools tab, 'Coordinates' section: toggle group with three icon+label options (Pick point, Measure, Bounding box), helper text for the active mode, and a result block (label/value rows in code-text: lng/lat; total distance in m/km with segment count; west/south/east/north) with Copy and 'Add to data' buttons. While a tool is active, a hint bar sits top-centre on the map ('Click points to measure · double-click to finish' + Cancel). Map search (top-left of map): input with search icon: 'lng, lat or GeoJSON URL'.",
+        "interaction": "Pick point: one click shows a marker and coordinates. Measure: each click adds a vertex; the line and running total update; double-click or Finish ends. Bounding box: two clicks draw the rectangle. Copy copies plain text (lng,lat / W,S,E,N). Add to data appends the drawn geometry as a Feature to the editor content. Cancel or Esc ends the tool and removes temporary drawings. Search: 'lng, lat' flies to the point with a short-lived marker; an http(s) URL loads that URL."
+      },
+      {
+        "id": "style",
+        "title": "Label and colour by property",
+        "story": "Before a client call, the consultant labels each district with its name and colours districts by population.",
+        "visual": "Tools tab, 'Labels' section: select listing detected property keys + Show / Clear buttons. 'Choropleth' section: select listing numeric property keys + Apply / Clear, and when active a legend under the controls: 9-step QBDS sequential colour ramp bar with min and max values below. Labels render on the map in Inter-like basemap font with a halo for legibility.",
+        "interaction": "Show labels places the property value at each feature's centroid (point position for points). Apply colours polygon fills, lines and points by value using the sequential palette (min -> lightest, max -> darkest); features without a numeric value keep the default colour. Toast reports min, max and count. Clear removes the styling. Styling is render-only and never edits the JSON. Features that carry simplestyle properties (fill, stroke, stroke-width, fill-opacity, marker-color) render with those colours unless a choropleth is active."
+      },
+      {
+        "id": "map",
+        "title": "Navigate and configure the map",
+        "story": "Anyone using the tool pans, zooms, tilts and switches basemaps, and expects the app to remember where they were next time.",
+        "visual": "Vertical boxed toolbar at the map's top-right: zoom in, zoom out, a small zoom-level readout, fit to data, reset north (only when rotated/pitched), basemap menu (radio list: Auto, Dark, Light, Streets, + HERE options when a key is configured), tile grid toggle, map-only toggle. Bottom-right: cursor coordinates readout and basemap attribution. Tools tab 'Tile grid' section: switch + scheme toggle (XYZ / TMS) + helper text.",
+        "interaction": "Right-drag or Ctrl-drag rotates/tilts (MapLibre defaults). Fit to data fits the current features with padding. Map-only hides header and panel; Esc or the toolbar button restores. Splitter drag resizes panel (min 320px each side), double-click resets 62/38. Tile grid draws tile borders with z/x/y and quadkey labels at the current zoom; clicking a tile shows its z/x/y, TMS y, quadkey and bounds in the inspector card. View (centre, zoom, bearing, pitch), basemap, split, theme and last data (< 2 MB) persist in localStorage; ?map=lng,lat,zoom overrides the saved view."
+      }
+    ]
+  },
+  "ui_structure": {
+    "status": "confirmed",
+    "uxAdjustments": [
+      "Shell: the skill's app-shell recipe is @qbds/sidebar (SidebarApp). This is a single-screen tool with no navigation, so the sidebar is not used — SidebarApp's AppHeader composition (border-b header, logo + headings-h3-regular title, actions ml-auto) is kept without SidebarProvider. Header height h-14 per app-layout-archetypes.md (the SidebarApp example uses h-[72px]; the archetype doc and the example disagree).",
+      "Map toolbar: UX asked for a zoom-level readout inside the toolbar; ToolbarVertical only composes ToolbarButton / ToolbarGroup / ToolbarSeparator, so the readout is a non-interactive label-small-primary row inside the boxed toolbar between two ToolbarSeparators.",
+      "Basemap picker: UX said 'menu with radio list' — follows DropdownMenuWithRadioGroup (DropdownMenuRadioGroup + RadioItem inside DropdownMenuContent, triggered by a ToolbarButton via render prop).",
+      "Validation alert: AlertVariants uses layout='modal' (max-w-[560px] vertical card); the editor panel uses layout='long' (full-width banner) because the alert sits inside a narrow panel above the editor.",
+      "Empty state: the skill's ui-structure example cites @qbds/empty, but 'empty' is not in registry.json — the editor/map empty state is composed from IconShell + text + Button with tokens."
+    ],
+    "jsx": "<TooltipProvider>\n  <div className=\"flex h-svh flex-col bg-surface-base text-fg-primary\">\n    <AppHeader>            {/* logo, 'GeoJSON Studio', feature count, Help, ThemeToggle */}\n    <SplitView>\n      <MapPane>\n        <MapView />          {/* MapLibre canvas: data layers, highlight, labels, choropleth, tile grid, tool drawings */}\n        <MapSearch />        {/* InputGroup: search icon + 'lng, lat or GeoJSON URL' + Go */}\n        <FeatureInspector /> {/* Card + Table + Badge + Button actions */}\n        <ToolHint />         {/* active coordinate tool hint + Cancel */}\n        <MapToolbar />       {/* Toolbar vertical boxed: zoom, readout, fit, north, basemap DropdownMenu, grid, map-only */}\n        <GeometryFilters />  {/* TagToggle x3 with counts */}\n        <CursorReadout />\n      </MapPane>\n      <PanelResizer />\n      <SidePanel>\n        <Tabs size=\"default\">\n          <TabsList>Editor | Data | Tools</TabsList>\n          <TabsContent value=\"editor\"><EditorPane /></TabsContent>  {/* actions row, ValidationAlert, GeoJsonEditor */}\n          <TabsContent value=\"data\"><DataPane /></TabsContent>      {/* FileDropTarget, UrlLoader (Field+InputGroup+Input), SampleList */}\n          <TabsContent value=\"tools\"><ToolsPane /></TabsContent>    {/* CoordinateTools (ToggleGroup), LabelTool & ChoroplethTool (Select), ChoroplethLegend, TileGridTool (Switch + ToggleGroup) */}\n        </Tabs>\n      </SidePanel>\n    </SplitView>\n    <DropOverlay />\n    <Toaster />\n  </div>\n</TooltipProvider>",
+    "regions": [
+      {
+        "region": "header",
+        "components": ["@qbds/button", "@qbds/icon", "@qbds/icon-shell", "@qbds/tooltip", "@qbds/badge"],
+        "example": "examples/sidebar.json#SidebarApp (AppHeader) + examples/button.json#ButtonVariants + examples/tooltip.json#TooltipDemo",
+        "layout": "h-14 shrink-0 flex items-center gap-3 border-b px-4; logo 24px; title; data summary badge; actions ml-auto gap-1",
+        "tokens": "bg-surface-primary border-stroke-divider; title headings-h4-semibold text-fg-primary; summary label-small-primary text-fg-secondary",
+        "notes": "Theme toggle hand-built from ghost icon Button + Material Symbols (no @qbds/theme-toggle — react-qbds-registry.md). Logo: the app's own mark (public/logo.svg) on a navy square, so one file serves both themes."
+      },
+      {
+        "region": "split",
+        "components": ["PanelResizer"],
+        "example": "none — no registry splitter; documented in newComponents",
+        "layout": "flex min-h-0 flex-1; map flex-1 min-w-80; resizer w-2 cursor-col-resize with 1px centre line; panel width state (px), min 320, default 38%",
+        "tokens": "resizer line bg-stroke-divider, hover/active bg-stroke-active; focus-visible:ring-stroke-status-focus"
+      },
+      {
+        "region": "map-toolbar",
+        "components": ["@qbds/toolbar", "@qbds/dropdown-menu", "@qbds/tooltip", "@qbds/icon-shell", "@qbds/icon"],
+        "example": "examples/toolbar.json#ToolbarVertical + examples/dropdown-menu.json#DropdownMenuWithRadioGroup",
+        "layout": "absolute top-4 right-4; Toolbar boxed orientation=vertical size=default; ToolbarButton per action with ToolbarIcon (IconShell toolbarIconShellSizeMap[size] variant=secondary); ToolbarSeparator between groups",
+        "tokens": "component defaults (bg-fill-secondary-inverse border-stroke-tertiary shadow-elevation-1); readout label-small-primary text-fg-secondary"
+      },
+      {
+        "region": "map-search",
+        "components": ["@qbds/input-group", "@qbds/icon-shell", "@qbds/icon"],
+        "example": "examples/input-group.json#InputGroupLeadingIcon + #InputGroupTrailing",
+        "layout": "absolute top-4 left-4 w-[360px] max-w-[calc(100%-6rem)]; InputGroupAddon inline-start search icon; InputGroupAddon inline-end InputGroupButton ghost icon-xs arrow_forward",
+        "tokens": "wrapper bg-surface-primary shadow-elevation-1 (floats over map)",
+        "notes": "input-group examples import a site-only ./input-group-config — replaced with literal gap-2 / iconSize sm."
+      },
+      {
+        "region": "inspector",
+        "components": ["@qbds/card", "@qbds/table", "@qbds/badge", "@qbds/button", "@qbds/scroll-area"],
+        "example": "examples/card.json#DefaultCard + examples/table.json#TableSizes (size sm)",
+        "layout": "absolute top-[72px] left-4 w-[360px] max-h-[60%] flex flex-col; Card size=sm; CardHeader: CardTitle + Badge + CardAction close; CardContent: ScrollArea > Table sm (key | value); CardFooter: ghost buttons",
+        "tokens": "Card contrast=low default; key cells text-fg-secondary label-small-primary; value cells text-fg-primary paragraph-small-primary, code values paragraph-code-text; clickable rows hover:bg-stateslayer-overlay-hover cursor-pointer"
+      },
+      {
+        "region": "tool-hint",
+        "components": ["@qbds/button", "@qbds/icon-shell"],
+        "example": "examples/button.json#ButtonVariants",
+        "layout": "absolute top-4 left-1/2 -translate-x-1/2 flex items-center gap-3 px-4 py-2",
+        "tokens": "bg-surface-primary border border-stroke-tertiary shadow-elevation-1; text label-regular-primary text-fg-primary"
+      },
+      {
+        "region": "geometry-filters",
+        "components": ["@qbds/tag-toggle", "@qbds/icon-shell"],
+        "example": "examples/tag-toggle.json#TagToggleDemo",
+        "layout": "absolute bottom-8 left-4 flex gap-2; TagToggle size=sm pressed controlled, leading IconShell (location_on / polyline / pentagon)",
+        "tokens": "component defaults; count in label-small-primary"
+      },
+      {
+        "region": "panel-tabs",
+        "components": ["@qbds/tabs"],
+        "example": "examples/tabs.json#TabsDemo",
+        "layout": "panel flex flex-col min-h-0; Tabs flex-1 flex flex-col min-h-0; TabsList px-4; TabsContent flex-1 min-h-0 overflow-auto (Editor content: flex col, editor fills)",
+        "tokens": "panel bg-surface-primary border-l border-stroke-divider"
+      },
+      {
+        "region": "editor",
+        "components": ["@qbds/button", "@qbds/tooltip", "@qbds/alert", "@qbds/badge", "GeoJsonEditor"],
+        "example": "examples/button.json#ButtonWithIcons + examples/alert.json#AlertVariants + examples/badge.json#BadgeStatusSection",
+        "layout": "action row h-12 px-4 flex items-center gap-1 border-b; Buttons ghost size=sm with leading icon; status right (StatusBadge + label); Alert layout=long mx-4 mt-3; editor flex-1 min-h-0",
+        "tokens": "status text label-small-primary text-fg-secondary; error text-error; success text-success"
+      },
+      {
+        "region": "data",
+        "components": ["@qbds/field", "@qbds/input", "@qbds/input-group", "@qbds/button", "@qbds/badge", "@qbds/separator", "FileDropTarget"],
+        "example": "examples/field.json#FieldDemo + examples/input-group.json#InputGroupTrailing + examples/badge.json#BadgeLabelOnly",
+        "layout": "p-4 flex flex-col gap-6; section title headings-h4-semibold; FieldSet gap-2; samples list divide-y",
+        "tokens": "drop target border border-dashed border-stroke-secondary bg-fill-subtle hover:bg-stateslayer-overlay-hover p-6; helper text-fg-secondary paragraph-small-primary"
+      },
+      {
+        "region": "tools",
+        "components": ["@qbds/toggle-group", "@qbds/select", "@qbds/field", "@qbds/button", "@qbds/switch", "@qbds/label", "@qbds/separator", "ChoroplethLegend"],
+        "example": "examples/toggle-group.json#ToggleGroupDemo + examples/select.json#SelectDemo + examples/switch.json#SwitchDemo",
+        "layout": "p-4 flex flex-col gap-6; each tool a section (title + helper + controls + result); results as label/value rows",
+        "tokens": "result block bg-fill-subtle p-3 paragraph-code-text; labels text-fg-secondary"
+      },
+      {
+        "region": "feedback",
+        "components": ["@qbds/sonner"],
+        "example": "examples/sonner.json#SonnerVariants",
+        "layout": "Toaster bottom-right",
+        "tokens": "component defaults",
+        "notes": "toast.success / toast.error / toast.info; Clear uses an action button for Undo."
+      }
+    ],
+    "installs": [
+      "@qbds/button", "@qbds/icon", "@qbds/icon-shell", "@qbds/tooltip", "@qbds/badge", "@qbds/toolbar", "@qbds/toggle", "@qbds/toggle-group", "@qbds/dropdown-menu", "@qbds/input", "@qbds/input-group", "@qbds/field", "@qbds/label", "@qbds/select", "@qbds/switch", "@qbds/tag-toggle", "@qbds/card", "@qbds/table", "@qbds/alert", "@qbds/sonner", "@qbds/separator", "@qbds/scroll-area", "@qbds/tabs"
+    ],
+    "newComponents": [
+      {
+        "name": "MapView",
+        "path": "src/features/map/MapView.tsx",
+        "description": "MapLibre GL map: basemap style, GeoJSON data layers, selection/highlight via feature-state, labels, choropleth, tile grid and tool drawings.",
+        "checkedRegistry": true,
+        "whyNotQbds": "Searched registry.json and examples index: no map, canvas or geospatial component exists. QBDS has no chart/map package (DESIGN.md §7 says charts use ECharts; maps are not covered).",
+        "compose": [],
+        "tokens": { "root": "absolute inset-0 bg-surface-base", "dataDefault": "#097DFE (qualitative 1)", "highlight": "#E77EC2 (qualitative 7)", "toolDrawing": "#05D0F0 (qualitative 3)", "choropleth": "DESIGN.md sequential 9 stops", "tileGrid": "plot grid ink rgba(255,255,255,0.380) dark / rgba(20,23,33,0.380) light" },
+        "layout": "fills MapPane; overlays are siblings, not children of the canvas",
+        "behavior": "Re-creates style on basemap or theme change and re-adds data layers on style.load. Data source uses promoteId '__idx' so feature-state drives selection. Click -> onFeatureClick(idx | null); mousemove -> cursor + hover state + onCursor(lngLat). Exposes an imperative handle: fitData, flyTo, zoomIn/out, resetNorth.",
+        "states": ["style loading", "ready", "no data", "style error (falls back to Light)"],
+        "a11y": "Canvas has aria-label 'Map'; all map actions also reachable via toolbar buttons and the editor.",
+        "props": ["data: RenderData", "basemap: BasemapId", "theme", "selection", "highlights", "labelProperty", "choropleth", "tileGrid", "toolDrawing", "hiddenTypes", "onFeatureClick", "onMapClick", "onCursor", "onViewChange"],
+        "how": "maplibre-gl Map in a ref'd div; layers: data-fill (Polygon), data-outline, data-line, data-point (circle), data-label (symbol), grid-line, grid-label, draw-line/point/fill. Colours as MapLibre expressions: case on feature-state.selected/highlighted, then choropleth colour property, then to-color(simplestyle) fallback."
+      },
+      {
+        "name": "GeoJsonEditor",
+        "path": "src/features/editor/GeoJsonEditor.tsx",
+        "description": "JSON code editor bound to the app text; gutter lint markers; selection API for map->editor sync.",
+        "checkedRegistry": true,
+        "whyNotQbds": "No code editor in registry; @qbds/textarea cannot do line numbers, folding or lint markers.",
+        "compose": [],
+        "tokens": { "root": "h-full bg-surface-base", "text": "var(--text-primary)", "gutter": "bg-surface-primary var(--text-tertiary)", "selection": "var(--fill-active-alpha)", "cursorLine": "var(--stateslayer-overlay-hover)", "font": "Roboto Mono 12px (paragraph-code-text)" },
+        "layout": "fills remaining height of the Editor tab",
+        "behavior": "Controlled by value; emits onChange on user edits only; emits onCursor(offset) on selection change; imperative selectRange(from,to) + flash. Lint source = JSON parse error + per-feature validation issues.",
+        "states": ["editable", "read-only (large input)", "empty"],
+        "a11y": "aria-label 'GeoJSON editor'; keyboard: standard CodeMirror keymap + search (Cmd/Ctrl-F).",
+        "props": ["value", "onChange", "onCursor", "diagnostics", "readOnly"],
+        "how": "@codemirror/state + view + lang-json + lint + search + language (folding); EditorView.theme uses var(--*) QBDS variables so dark/light swap is automatic."
+      },
+      {
+        "name": "PanelResizer",
+        "path": "src/components/layout/PanelResizer.tsx",
+        "description": "Vertical drag handle between map and panel.",
+        "checkedRegistry": true,
+        "whyNotQbds": "No resizable/splitter primitive in registry.json.",
+        "compose": [],
+        "tokens": { "root": "w-2 cursor-col-resize", "line": "w-px bg-stroke-divider group-hover:bg-stroke-active", "focus": "focus-visible:ring-1 focus-visible:ring-stroke-status-focus" },
+        "layout": "between MapPane and SidePanel, full height",
+        "behavior": "Pointer drag sets panel width (clamped); ArrowLeft/Right step 32px; double-click resets.",
+        "states": ["idle", "hover", "dragging", "focus"],
+        "a11y": "role=separator aria-orientation=vertical aria-valuenow/min/max, tabIndex 0, aria-label 'Resize panel'",
+        "props": ["width", "min", "max", "onChange", "onReset"],
+        "how": "Pointer capture on the handle; width = container right edge - pointer x."
+      },
+      {
+        "name": "FileDropTarget + DropOverlay",
+        "path": "src/features/data/FileDrop.tsx",
+        "description": "Window-level drag-and-drop for GeoJSON files and the dashed Browse target in the Data tab.",
+        "checkedRegistry": true,
+        "whyNotQbds": "No dropzone/file-upload component in registry.json.",
+        "compose": ["@qbds/button", "@qbds/icon-shell"],
+        "tokens": { "target": "border border-dashed border-stroke-secondary bg-fill-subtle p-6", "overlay": "fixed inset-0 bg-surface-base/90 border-2 border-dashed border-stroke-active", "text": "headings-h4-regular text-fg-primary" },
+        "layout": "target: column centered gap-2; overlay: full window centered",
+        "behavior": "dragenter/leave counting so nested elements don't flicker; drop -> onFiles(FileList). Hidden <input type=file multiple accept=.geojson,.json>.",
+        "states": ["idle", "drag over", "loading"],
+        "a11y": "Browse is a real Button; overlay aria-hidden (drag only)",
+        "props": ["onFiles", "disabled?"],
+        "how": "Button + IconShell from ButtonWithIcons; overlay is presentational."
+      },
+      {
+        "name": "ChoroplethLegend",
+        "path": "src/features/tools/ChoroplethLegend.tsx",
+        "description": "Horizontal 9-step colour bar with min/max labels.",
+        "checkedRegistry": true,
+        "whyNotQbds": "No legend component; charts guidance covers ECharts visualMap only.",
+        "compose": [],
+        "tokens": { "bar": "h-2 flex", "labels": "label-small-primary text-fg-secondary", "stops": "DESIGN.md sequential palette" },
+        "layout": "flex col gap-1",
+        "behavior": "static",
+        "states": ["hidden when no choropleth"],
+        "a11y": "role=img with aria-label 'Colour scale from {min} to {max}'",
+        "props": ["min", "max", "property"],
+        "how": "Inline style background per stop (chart hex is the documented exception to the no-raw-hex rule)."
+      }
+    ]
+  },
+  "build": {
+    "status": "done",
+    "location": ".",
+    "verification": {
+      "typecheck": "tsc -b clean",
+      "lint": "oxlint: 0 errors; only only-export-components warnings (registry files + useStudio hook)",
+      "unit": "vitest 54/54 passing (data layer + MapLibre expression evaluation)",
+      "e2e": "playwright 11/11 passing against the production build in local Chrome; screenshots in docs/screenshots"
+    },
+    "deviations": [
+      "Scaffold fix: setup-qbds-vite.sh writes compilerOptions.baseUrl into tsconfig.json and tsconfig.app.json; create-vite@latest now ships TypeScript 7 where baseUrl is removed (TS5102), so `npm run build` failed on the untouched scaffold. Removed baseUrl and ignoreDeprecations; paths still resolve.",
+      "Scaffold fix: @qbds/dropdown-menu installs a site demo file src/components/dropdown-menu.tsx importing '@/app/demo/[name]/ui/action-menu-examples.shared' (not in the app), which breaks tsc. Deleted it; the component is src/components/ui/dropdown-menu.tsx.",
+      "Scaffold fix: index.css imported all of 'material-symbols' (Sharp, Outlined, Rounded ~13 MB of fonts). QBDS only allows Sharp, so it now imports 'material-symbols/sharp.css'.",
+      "Map overlay colours: matches use qualitative #3 (#05D0F0) and tool drawings qualitative #6 (#11B883) instead of the plan's single toolDrawing colour, so selection, matches and drawings stay distinguishable.",
+      "Editor selection uses --fill-tertiary instead of --fill-active-alpha (88% opacity made selected text unreadable in dark mode).",
+      "MapLibre integration: positioning moved to a wrapper div because maplibre-gl.css (unlayered) sets .maplibregl-map { position: relative }, overriding Tailwind v4's layered `absolute` and collapsing the map's hit area.",
+      "Inspector tables override TableCell's fixed h-[60px] with h-auto py-1.5 for density.",
+      "Tool hint moved from top-centre to bottom-centre: at the default split it overlapped the map search field.",
+      "Status copy shortened ('39 valid' / '3 invalid') so it fits the 440px panel next to four actions.",
+      "Logo: an original mark, the Polygon G (a G drawn as an unclosed polygon ring, with a pink start handle and a cyan cursor point), in the app's map colours. It replaces the design system's logo so the app carries its own identity."
+    ]
+  }
+}

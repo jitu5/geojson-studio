@@ -1,0 +1,31 @@
+@import './styles/globals.css';
+/* Sharp only: QBDS bans rounded/outlined symbols, and the full package adds ~9 MB of unused fonts. */
+@import 'material-symbols/sharp.css';
+@import 'maplibre-gl/dist/maplibre-gl.css';
+
+/*
+ * MapLibre controls rendered by the library itself, mapped onto QBDS tokens.
+ * maplibre-gl.css is unlayered, so these selectors carry an extra class to win.
+ */
+.maplibregl-map .maplibregl-ctrl.maplibregl-ctrl-attrib,
+.maplibregl-map .maplibregl-ctrl-attrib.maplibregl-compact,
+.maplibregl-map .maplibregl-ctrl-attrib.maplibregl-compact-show {
+  background-color: var(--surface-primary);
+  color: var(--text-secondary);
+  font-family: 'Inter', sans-serif;
+  font-size: 11px;
+  border-radius: 0;
+}
+.maplibregl-map .maplibregl-ctrl-attrib a {
+  color: var(--text-secondary);
+}
+.maplibregl-ctrl-attrib-button {
+  filter: none;
+}
+.dark .maplibregl-ctrl-attrib-button {
+  filter: invert(1);
+}
+.maplibregl-canvas:focus-visible {
+  outline: 1px solid var(--border-status-focus);
+  outline-offset: -1px;
+}

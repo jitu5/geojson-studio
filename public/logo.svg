@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <title>GeoJSON Studio</title>
+  <rect width="64" height="64" fill="#0E1525"/>
+  <path d="M53 23.3L40.7 11H23.3L11 23.3V40.7L23.3 53H40.7L53 40.7V32H39" fill="none" stroke="#097DFE" stroke-width="6" stroke-linejoin="miter"/>
+  <rect x="49" y="19.3" width="8" height="8" fill="#E77EC2"/>
+  <circle cx="36.5" cy="32" r="5.5" fill="#05D0F0"/>
+</svg>
